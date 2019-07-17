@@ -1,0 +1,125 @@
+/*
+    Insight custom dashboard framework
+
+    Framework for implementing Insight 4.x dashboard views
+    
+    (c) Copyright 2019 Fair Isaac Corporation
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+*/
+
+/* standard styling for a dashboard, tiles and other elements */
+
+body {
+	background-color: #E9E9E9;
+	margin-left: 0;
+	margin-right: 0;
+}
+
+#main {
+	padding-left: 15px;
+	padding-right: 15px;
+}
+
+.dashboard vdl-row {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+.dashboard .column-body {
+	/*height: 100%;*/
+	padding-top: 10px;
+	/*padding-bottom: 10px;*/
+}
+
+.dashboard vdl-column + vdl-column
+{
+	padding-left: 10px;
+}
+
+.col-sm-1, .col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5, .col-sm-6, .col-sm-7, .col-sm-8, .col-sm-9, .col-sm-10, .col-sm-11, .col-sm-12
+{
+	padding-left: 0px;
+	padding-right: 0px;
+}
+
+/* tile styling */
+.dashboard .tile {
+	height: 200px;
+	background-color: white;
+	width: 100%;
+	border-radius: 4px;
+	padding: 5px 10px 0px 10px;
+}
+
+.dashboard .tile-header {
+	height: 20px;
+	color: #444444;
+	font-weight: normal;
+}
+
+.dashboard .tile-header h4 {
+	margin-top: 0;
+}
+
+.dashboard .tile-contents {
+	height: 100%;
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+}
+
+/* custom  overlay */
+.dashboard-loading-overlay {
+	text-align: center;
+	padding-top: 80px;
+	color: #333;
+	font-family: Arial, serif;
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: white;
+	z-index: 500;
+}
+
+.dashboard-loading-text {
+	display: block;
+	margin-top: 5px;
+}
+
+/* refresh button styling */
+#refresh {
+	display: inline-block;
+	position: absolute;
+	right: 5px;
+	top: 3px;
+	z-index: 255;
+}
+
+/* inline error message at the top of the dashboard */
+#error-message .alert {
+	margin-bottom: -10px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	padding-left: 55px;
+	background-position: 14px 11px;
+}
+
+/* inline info message at the top of the dashboard when dashboard data is stale */
+#outofdate-message .alert {
+	margin-top: 5px;
+	margin-bottom: -5px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	padding-left: 55px;
+	background-position: 14px 11px;
+}

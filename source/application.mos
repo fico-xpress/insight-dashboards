@@ -1,0 +1,173 @@
+(!
+    Insight custom dashboard framework
+
+    Framework for implementing Insight 4.x dashboard views
+
+    (c) Copyright 2019 Fair Isaac Corporation
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+!)
+
+model "Dashboards"
+  options noimplicit
+  
+  uses "mminsight"
+  uses "mmsystem"
+  version 0.0.1
+
+  declarations
+    SYSTEM_FOLDER = "_system"
+  end-declarations
+
+  ! standard scenario data model
+  !@insight.manage input
+  public declarations
+    workflow: integer ! 0 - submitted, 1 - in progress, 2 - approved, 3 - rejected
+    score: integer ! 0-1000
+  end-declarations
+
+  ! dashboard scenario data model
+  !@insight.manage input
+  !@insight.hidden true
+  public declarations
+    totalScenarios: integer
+    totalFolders: integer
+
+    totalSubmitted : integer
+    totalInProgress: integer
+    totalApproved : integer
+    totalRejected : integer
+
+    scenarios: range
+    scores: array(scenarios) of integer
+
+    attachmentFilename: set of string
+    attachmentDescription: array(attachmentFilename) of string
+    attachmentSize: array(attachmentFilename) of integer
+    attachmentModifiedTime: array(attachmentFilename) of string
+    attachmentModifiedUser: array(attachmentFilename) of string
+    attachmentTags: array(attachmentFilename) of string
+  end-declarations
+
+  !@doc.descr Recursive search for scenarios on a specified path
+  procedure recursiveSearch(path: text)
+    declarations
+      items: list of insightiteminfo
+      w: integer
+      s: integer
+    end-declarations
+
+    items := insightgetiteminfos(path)
+    forall(i in items) do
+      writeln(i.name)
+      writeln("\t", i.type)
+      writeln("\t", i.path)
+
+      if i.type = "SCENARIO" then
+         totalScenarios += 1
+
+        ! query the workflow state of the scenario
+        initializations from "mminsight.scenariodata:" + i.path
+          w as "workflow"
+          s as "score"
+        end-initializations
+        if w=0
+          then totalSubmitted += 1
+        elif w=1
+          then totalInProgress += 1
+         elif w=2
+          then totalApproved += 1
+        else
+          totalRejected += 1
+        end-if
+
+        writeln("\t", s)
+        scores(totalScenarios) := s
+
+      elif i.type = "FOLDER" and i.name <> SYSTEM_FOLDER then
+        totalFolders += 1
+        recursiveSearch(i.path)
+      end-if
+    end-do
+  end-procedure
+
+  ! **** Subroutines implementing execution modes ****
+  !@doc.descr Implementation of the scenario 'LOAD' mode
+  procedure doLoad
+    ! standard scenario data
+    workflow := integer(round(random * 4))
+    score := integer(round(random * 1000))
+    writeln("Loading data for scenario '", getparam("insight_scenario_name"), "'")
+  end-procedure
+
+
+  !@doc.descr Implementation of the execution mode 'loadDashboard'
+  !@insight.execmodes.loadDashboard.clearinput true
+  procedure doLoadDashboard
+  declarations
+      temp: list of text
+      root: text
+      attachments: list of insightattachment
+  end-declarations
+
+  ! generate dashboard data
+  temp := splittext(getparam("insight_scenario_path"), "/")
+  root := text("/") + temp(2)
+  recursiveSearch(root)
+  writeln("number of scenarios is " + totalScenarios)
+  writeln("number of folders is " + totalFolders)
+
+  ! attachmwent data
+  attachments:= insightlistappattach
+  forall(a in attachments, fname=string(a.filename)) do
+    attachmentDescription(fname) := string(a.description)
+    attachmentSize(fname) := a.size
+    attachmentModifiedTime(fname) := string(getdate(a.lastModifiedDate))
+    attachmentModifiedUser(fname) := string(a.lastModifiedUser)
+    attachmentTags(fname) := string(jointext(a.tags,", "))
+  end-do
+  end-procedure
+
+  !@doc.descr Implementation of the scenario 'RUN' mode
+  procedure doRun
+    writeln("Running scenario '", getparam("insight_scenario_name"), "'")
+    writeln("Score value: ", score, ", workflow status: ", workflow)
+  end-procedure
+
+  ! **** Insight execution mode dispatching ****
+  case insightgetmode of
+    INSIGHT_MODE_LOAD: do
+      doLoad
+      exit(0)
+    end-do
+    "loadDashboard": do
+      doLoadDashboard
+      exit(0)
+    end-do
+    INSIGHT_MODE_RUN: do
+      insightpopulate
+      doRun
+    end-do
+    INSIGHT_MODE_NONE: do
+      ! When the model is run in standalone Mosel (outside of Xpress Insight), load the input data then solve the model
+      doLoad
+      doRun
+    end-do
+  else
+    writeln("Unknown execution mode")
+    exit(1)
+  end-case
+
+  writeln("Finished")
+  end-model
+
+
+
+

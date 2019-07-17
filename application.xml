@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    File Type: Model companion file. Configures an Xpress Insight application.
+    Purpose: Defines the custom views used by the application.
+    (c) 2016-2017 Fair Isaac Corporation.
+-->
+<model-companion xmlns="http://www.fico.com/xpress/optimization-modeler/model-companion" version="3.0">
+
+    <client>
+        <view-group title="Main">
+            <vdl-view title="Dashboard 1 - manual" path="dashboard1.vdl" empty-selection-default="true"/>
+            <vdl-view title="Dashboard 2 - auto" path="dashboard2.vdl" empty-selection-default="true" />
+        </view-group>
+    </client>
+
+</model-companion>

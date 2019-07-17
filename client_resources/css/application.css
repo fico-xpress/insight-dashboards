@@ -1,0 +1,129 @@
+/*
+    Insight custom dashboard framework
+
+    Framework for implementing Insight 4.x dashboard views
+    
+    (c) Copyright 2019 Fair Isaac Corporation
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+*/
+
+
+/* global kpi tile */
+#kpi-tile {
+	height: 280px;
+}
+
+#kpi-tile .kpi-container {
+	flex-grow: 1;
+	flex-basis: 33%;
+}
+
+#kpi-tile .kpi-title {
+	height: 30%;
+	font-size: 200%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	text-align: center;
+}
+
+#kpi-tile .kpi {
+	height: 70%;
+	text-align: center;
+	font-size: 500%;
+    /*align-items: top; */;
+}
+
+/* workflow status tile */
+#workflow-tile {
+	height: 280px;
+}
+
+#workflow-tile .tile-contents {
+	padding: 20px;
+	flex-direction: column;
+}
+
+#workflow-tile .workflow-container {
+	width: 100%;
+	height: 25%;
+	display: flex;
+	flex-direction: row;
+	padding-bottom: 15px;
+}
+
+#workflow-tile .workflow-label {
+	font-size: 110%;
+	width: 115px;
+	display: flex;
+	justify-content: center;
+	flex-direction: column;
+	text-align: right;
+}
+
+#workflow-tile .workflow-total {
+	flex-grow: 1;
+	display: flex;
+	align-items: center;
+	padding-left: 10px;
+}
+
+#workflow-tile .counter {
+	width: 60px;
+	height: 100%;
+	border: 1px solid grey;
+	border-radius: 8px;
+	background-color: lightgrey;
+	margin-right: 10px;
+}
+
+#workflow-tile .submitted.counter {
+	border: 1px solid #008AFF;
+	background-color: #89C9FF;
+}
+
+#workflow-tile .inprogress.counter {
+	border: 1px solid #FF8D18;
+	background-color: #FFBD7A;
+}
+
+#workflow-tile .approved.counter {
+	border: 1px solid #90A500;
+	background-color: #C4E000;
+}
+
+#workflow-tile .rejected.counter {
+	border: 1px solid grey;
+	background-color: lightgrey;
+}
+
+/* score chart tile */
+#score-tile {
+	height: 280px;
+}
+
+#score-tile .score-chart {
+	height: 90%;
+}
+
+/* attachment table tile */
+#attachments-tile {
+	height: 280px;
+}
+
+#attachments-tile .attachment-table {
+	padding: 20px;
+}
+
+#attachments-tile .attachment-table td {
+	white-space: nowrap;
+}
