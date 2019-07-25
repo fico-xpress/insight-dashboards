@@ -37,7 +37,7 @@ var dashboard = new Dashboard({
     viewId: "dashboard1"
 });
 insight.getView().replaceSelection(
-    dashboard.start();
+    dashboard.start()
 );
 ```
 The minimum config you need to provide to the Dashboard constructor is a unique (for the dashboards in your app) string identifier (the viewId).
@@ -61,7 +61,7 @@ var dashboard = new Dashboard({
     executionMode: "loadDashboard"
 });
 insight.getView().replaceSelection(
-    dashboard.start();
+    dashboard.start()
 );
 ```
 application.mos:
@@ -76,7 +76,7 @@ dashboard1.vdl:
 ```html
 <link href="css/dashboardframework.css" rel="stylesheet" type="text/css">
 ```
-Tiles occupy the full width and height of the parent column.
+Tiles occupy the full width of the parent column. Tile height should be set with CSS.
 
 dashboard1.vdl:
 ```html
@@ -95,7 +95,7 @@ dashboard1.vdl:
 </vdl-section>
 ```
 ### Adding a refresh button
-The data held by the dashboard scenario may fall out of date as the state of the app evolves. One solution is to add a refresh button which re-executes the data collection.
+The data held by the dashboard scenario may fall out of date as the state of the app evolves. One solution is to add a refresh button which re-executes the data collection. A dedicated refresh button integrated with the custom overlay is provided.
 ```html
 <dashboard-refresh-button mode="loadDashboard"></dashboard-refresh-button>
 ```
@@ -134,7 +134,7 @@ var dashboard = new Dashboard({
         //dependencyExclusions: ["anotherfolder"]
     });
 insight.getView().replaceSelection(
-    dashboard.start();
+    dashboard.start()
 );
 ```
 The dependency check is run at regular intervals and the result recorded in the observable property Dashboard.current. The example dashboard uses this to reveal a message to the user.
