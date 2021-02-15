@@ -40,7 +40,7 @@ Dashboard.prototype = {
         var self = this;
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/project/' + self.appId + '/folder',
+            url: self.apiBase + 'data/project/' + self.appId + '/folder',
             type: 'GET',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8'
@@ -74,7 +74,7 @@ Dashboard.prototype = {
         };
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/folder/',
+            url: self.apiBase + 'data/folder/',
             type: 'POST',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8',
@@ -128,7 +128,7 @@ Dashboard.prototype = {
         };
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/folder/' + self.folderId + "?cascadeShareStatus=false&cascadeOwner=false",
+            url: self.apiBase + 'data/folder/' + self.folderId + "?cascadeShareStatus=false&cascadeOwner=false",
             type: 'POST',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8',
@@ -156,7 +156,7 @@ Dashboard.prototype = {
         var scenarioName = self.config.viewId + "." + self.userId;
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/folder/' + self.folderId + '/children',
+            url: self.apiBase + 'data/folder/' + self.folderId + '/children',
             type: 'GET',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8'
@@ -191,7 +191,7 @@ Dashboard.prototype = {
         };
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/scenario/',
+            url: self.apiBase + 'data/scenario/',
             type: 'POST',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8',
@@ -215,7 +215,7 @@ Dashboard.prototype = {
             throw new Error("Dashboard not initialized, missing scenario id");
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/scenario/' + self.scenarioId,
+            url: self.apiBase + 'data/scenario/' + self.scenarioId,
             type: 'GET',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8'
@@ -244,7 +244,7 @@ Dashboard.prototype = {
         };
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/execution',
+            url: self.apiBase + 'data/execution',
             type: 'POST',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8',
@@ -289,7 +289,7 @@ Dashboard.prototype = {
             throw new Error("Dashboard not initialized, missing scenario id");
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/scenario/' + self.scenarioId + '/job',
+            url: self.apiBase + 'data/scenario/' + self.scenarioId + '/job',
             type: 'GET',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8'
@@ -373,7 +373,7 @@ Dashboard.prototype = {
         };
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/project/' + self.appId + '/dashboard/status',
+            url: self.apiBase + 'data/project/' + self.appId + '/dashboard/status',
             type: 'POST',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8',
@@ -394,7 +394,7 @@ Dashboard.prototype = {
         var payload = {}; // summary data only, no entities
 
         return $.ajax({
-            url: '/insightservices/rest/v1/data/scenario/' + self.scenarioId + '/data',
+            url: self.apiBase + 'data/scenario/' + self.scenarioId + '/data',
             type: 'POST',
             dataType: 'json',
             contentType: 'application/json; charset=utf-8',
@@ -433,6 +433,14 @@ Dashboard.prototype = {
 
     start: function () {
         var self = this;
+        
+        // get the API base
+        // use the resolution method if available, to be path based routing comptabile
+        if (typeof insight.resolveRestEndpoint === "function")
+            self.apiBase = insight.resolveRestEndpoint('/insightservices/rest/v1/');
+        else
+        // if the method doesnt exist, cant be using PBR so safe to assume default base
+            self.apiBase = '/insightservices/rest/v1/';
 
         // get the user
         return insight.getView().getUser()
