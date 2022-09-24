@@ -16,7 +16,26 @@
 */
 
 describe("Dashboard", function() {
+    var dashboard;
+
+    function initDashboardObject() {
+        dashboard = new Dashboard({
+            viewId: 'test_view',
+            executionMode: 'test_executionMode',
+            systemFolder: '_system',
+            dependencyPath: '/test_dependencyPath',
+            dependencyExclusions: '/test_dependencyExclusion'
+        });
+        dashboard.apiBase = "/insightservices/rest/v1/";
+        dashboard.scenarioId = 'SCENARIOID';
+        dashboard.folderId = 'FOLDERID';
+        dashboard.userId = 'USERID';
+    }
+
     beforeEach(function () {
+        jasmine.Ajax.install();
+
+
         // global stubs
         window.VDL = function () {
         };
@@ -45,24 +64,23 @@ describe("Dashboard", function() {
                     },
                     showErrorMessage () {}
                 }
-            }
+            },
+            resolveRestEndpoint: jasmine.createSpy().and.callFake(_.identity)
         };
+
+
+    });
+
+    afterEach(function () {
+        jasmine.Ajax.uninstall();
     });
 
     describe("findFolder()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
+            initDashboardObject();
         });
 
         it("should resolve to true if the system folder exists", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
             var promise = dashboard.findFolder()
                 .then((found) => {
                     expect(found).toEqual('FOLDERID');
@@ -74,12 +92,8 @@ describe("Dashboard", function() {
             return promise;
         });
 
-        it("should resolve to true if the custom system folder exists", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode',
-                systemFolder: 'customfolder'
-            });
+        it("should resolve to true if the system folder name has been customized and exists", function () {
+            dashboard.config.systemFolder = "customfolder";
             var promise = dashboard.findFolder()
                 .then((found) => {
                     expect(found).toEqual('CUSTOMID');
@@ -92,11 +106,7 @@ describe("Dashboard", function() {
         });
 
         it("should resolve to false if the system folder does not exist", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode',
-                systemFolder: 'folderdoesntexist'
-            });
+            dashboard.config.systemFolder = 'folderdoesntexist';
             var promise = dashboard.findFolder()
                 .then((found) => {
                     expect(found).toBe(false);
@@ -109,10 +119,6 @@ describe("Dashboard", function() {
         });
 
         it("should resolve to false if no folders exist", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
             var promise = dashboard.findFolder()
                 .then((found) => {
                     expect(found).toBe(false);
@@ -125,10 +131,6 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if the call to the server doesnt return 200", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
             var promise = dashboard.findFolder()
                 .then((success) => {
                     // should not succeed!
@@ -147,18 +149,10 @@ describe("Dashboard", function() {
 
     describe("createFolder()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
+            initDashboardObject();
         });
 
         it("should return an id if it successfully creates a folder", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
             var promise = dashboard.createFolder()
                 .then((id) => {
                     expect(id).toEqual('FOLDERID');
@@ -179,10 +173,6 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if it fails to create a folder", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
             var promise = dashboard.createFolder()
                 .then((id) => {
                     // should not success!
@@ -205,41 +195,31 @@ describe("Dashboard", function() {
 
     describe("shareFolder()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-            this.dashboard.folderId = "FOLDERID";
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
+            dashboard.folderId = "FOLDERID";
         });
 
         it("should fail if the system folder id isnt known", function () {
-            this.dashboard.folderId = null;
-            expect(this.dashboard.findScenario).toThrow();
+            dashboard.folderId = null;
+            expect(dashboard.findScenario).toThrow();
         });
 
         it("should return an id if it successfully shares a folder", function () {
-            var promise = this.dashboard.shareFolder()
+            var promise = dashboard.shareFolder()
                 .then((id) => {
-                    expect(id).toEqual(this.dashboard.folderId);
+                    expect(id).toEqual(dashboard.folderId);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + this.dashboard.folderId + "?cascadeShareStatus=false&cascadeOwner=false");
+            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + dashboard.folderId + "?cascadeShareStatus=false&cascadeOwner=false");
             expect(request.method).toBe('POST');
-            expect(JSON.parse(request.params).id).toBe(this.dashboard.folderId);
+            expect(JSON.parse(request.params).id).toBe(dashboard.folderId);
             expect(JSON.parse(request.params).shareStatus).toBe("FULLACCESS");
             request.respondWith(testResponses.shareFolder.success);
             return promise;
         });
 
         it("should throw an error if it fails to share the folder", function () {
-            var promise = this.dashboard.shareFolder()
+            var promise = dashboard.shareFolder()
                 .then((id) => {
                     // should not succeed!
                     fail();
@@ -248,9 +228,9 @@ describe("Dashboard", function() {
                     // expected
                 })
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + this.dashboard.folderId + "?cascadeShareStatus=false&cascadeOwner=false");
+            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + dashboard.folderId + "?cascadeShareStatus=false&cascadeOwner=false");
             expect(request.method).toBe('POST');
-            expect(JSON.parse(request.params).id).toBe(this.dashboard.folderId);
+            expect(JSON.parse(request.params).id).toBe(dashboard.folderId);
             expect(JSON.parse(request.params).shareStatus).toBe("FULLACCESS");
             request.respondWith(testResponses.serverError);
             return promise;
@@ -259,57 +239,45 @@ describe("Dashboard", function() {
 
     describe("findScenario()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-            this.dashboard.folderId = 'FOLDERID';
-            this.dashboard.userId = 'USERID';
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should fail if the system folder id isnt known", function () {
-            this.dashboard.folderId = null;
-            expect(this.dashboard.findScenario).toThrow();
+            dashboard.folderId = null;
+            expect(dashboard.findScenario).toThrow();
         });
 
         it("should fail if the user id isnt knownn", function () {
-            this.dashboard.userId = null;
-            expect(this.dashboard.findScenario).toThrow();
+            dashboard.userId = null;
+            expect(dashboard.findScenario).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario exists", function () {
-            var promise = this.dashboard.findScenario()
+            var promise = dashboard.findScenario()
                 .then((found) => {
                     expect(found).toEqual('SCENARIOID');
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + this.dashboard.folderId + '/children');
+            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + dashboard.folderId + '/children');
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.findScenario.someScenarios);
             return promise;
         });
 
         it("should resolve to false if the system folder does not exist", function () {
-            var promise = this.dashboard.findScenario()
+            var promise = dashboard.findScenario()
                 .then((found) => {
                     expect(found).toBe(false);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + this.dashboard.folderId + '/children');
+            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + dashboard.folderId + '/children');
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.findScenario.noScenarios);
             return promise;
         });
 
         it("should throw an error if the call to the server doesnt return 200", function () {
-            var promise = this.dashboard.findScenario()
+            var promise = dashboard.findScenario()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -318,7 +286,7 @@ describe("Dashboard", function() {
                     // expected the error
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + this.dashboard.folderId + '/children');
+            expect(request.url).toBe('/insightservices/rest/v1/data/folder/' + dashboard.folderId + '/children');
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.serverError);
             return promise;
@@ -327,51 +295,40 @@ describe("Dashboard", function() {
 
     describe("isScenarioLoaded()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-            this.dashboard.scenarioId = 'SCENARIOID';
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should fail if the dashboard scenario id isnt known", function () {
-            this.dashboard.scenarioId = null;
-            expect(this.dashboard.isScenarioLoaded).toThrow();
+            dashboard.scenarioId = null;
+            expect(dashboard.isScenarioLoaded).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario is loaded", function () {
-            var promise = this.dashboard.isScenarioLoaded()
+            var promise = dashboard.isScenarioLoaded()
                 .then((loaded) => {
                     expect(loaded).toBe(true);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + this.dashboard.scenarioId);
+            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + dashboard.scenarioId);
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.isScenarioLoaded.loaded);
             return promise;
         });
 
         it("should resolve to false if the dashboard scenario is not loaded", function () {
-            var promise = this.dashboard.isScenarioLoaded()
+            var promise = dashboard.isScenarioLoaded()
                 .then((loaded) => {
                     expect(loaded).toBe(false);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + this.dashboard.scenarioId);
+            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + dashboard.scenarioId);
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.isScenarioLoaded.notLoaded);
             return promise;
         });
 
         it("should throw an error if the call to the server doesnt return 200", function () {
-            var promise = this.dashboard.isScenarioLoaded()
+            var promise = dashboard.isScenarioLoaded()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -380,7 +337,7 @@ describe("Dashboard", function() {
                     // expected the error
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + this.dashboard.scenarioId);
+            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + dashboard.scenarioId);
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.serverError);
             return promise;
@@ -389,27 +346,16 @@ describe("Dashboard", function() {
 
     describe("loadScenario()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-            this.dashboard.scenarioId = 'SCENARIOID';
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should fail if the dashboard scenario id isnt known", function () {
-            this.dashboard.scenarioId = null;
-            expect(this.dashboard.loadScenario).toThrow();
+            dashboard.scenarioId = null;
+            expect(dashboard.loadScenario).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario is successfully submitted for execution", function () {
-            var promise = this.dashboard.loadScenario()
+            var promise = dashboard.loadScenario()
                 .then((success) => {
                     expect(success).toEqual(true);
                 });
@@ -423,7 +369,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if the dashboard scenario is not successfully submitted for execution", function () {
-            var promise = this.dashboard.loadScenario()
+            var promise = dashboard.loadScenario()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -443,44 +389,33 @@ describe("Dashboard", function() {
 
     describe("isExecuting()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-            this.dashboard.scenarioId = 'SCENARIOID';
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should fail if the dashboard scenario id isnt known", function () {
-            this.dashboard.scenarioId = null;
-            expect(this.dashboard.isExecuting).toThrow();
+            dashboard.scenarioId = null;
+            expect(dashboard.isExecuting).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario is executing", function () {
-            var promise = this.dashboard.isExecuting()
+            var promise = dashboard.isExecuting()
                 .then((executing) => {
                     expect(executing).toEqual(true);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + this.dashboard.scenarioId + '/job');
+            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + dashboard.scenarioId + '/job');
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.isExecuting.executing);
             return promise;
         });
 
         it("should resolve to false if the dashboard scenario is not executing", function () {
-            var promise = this.dashboard.isExecuting()
+            var promise = dashboard.isExecuting()
                 .then((executing) => {
                     expect(executing).toEqual(false);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + this.dashboard.scenarioId + '/job');
+            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + dashboard.scenarioId + '/job');
             expect(request.method).toBe('GET');
             request.respondWith(testResponses.isExecuting.notExecuting);
             return promise;
@@ -489,56 +424,36 @@ describe("Dashboard", function() {
 
     describe("doOverlay()", function () {
         beforeEach(function () {
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
+            initDashboardObject();
             spyOn($.fn, "trigger");
-            this.dashboard.current = function () {
+            dashboard.current = function () {
             }; // stub for ko observable
         });
 
-        afterEach(function () {
-            this.dashboard = null;
-        });
-
         it("should show the overlay when asked to show the overlay", function () {
-            this.dashboard.showOverlay(true);
+            dashboard.showOverlay(true);
             expect($.fn.trigger).toHaveBeenCalledWith("dashboard.overlay.show");
         });
 
         it("should show the overlay when asked to hide the overlay", function () {
-            this.dashboard.showOverlay(false);
+            dashboard.showOverlay(false);
             expect($.fn.trigger).toHaveBeenCalledWith("dashboard.overlay.hide");
         });
     });
 
     describe("dependencyModified()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode',
-                dependencyPath: '/test_dependencyPath',
-                dependencyExclusions: '/test_dependencyExclusion'
-            });
-            this.dashboard.scenarioId = 'SCENARIOID';
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should resolve to true if the server says something has changed since timestamp", function () {
             var timestamp = 1234;
-            var promise = this.dashboard.dependencyModified(timestamp)
+            var promise = dashboard.dependencyModified(timestamp)
                 .then((modified) => {
                     expect(modified).toEqual(true);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/project/' + this.dashboard.appId + '/dashboard/status');
+            expect(request.url).toBe('/insightservices/rest/v1/data/project/' + dashboard.appId + '/dashboard/status');
             expect(request.method).toBe('POST');
             expect(JSON.parse(request.params).timestamp).toBe(timestamp);
             expect(JSON.parse(request.params).path).toBe('/test_dependencyPath');
@@ -550,12 +465,12 @@ describe("Dashboard", function() {
 
         it("should resolve to false if the server says nothing has changed since timestamp", function () {
             var timestamp = 1234;
-            var promise = this.dashboard.dependencyModified(timestamp)
+            var promise = dashboard.dependencyModified(timestamp)
                 .then((modified) => {
                     expect(modified).toEqual(false);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/project/' + this.dashboard.appId + '/dashboard/status');
+            expect(request.url).toBe('/insightservices/rest/v1/data/project/' + dashboard.appId + '/dashboard/status');
             expect(request.method).toBe('POST');
             expect(JSON.parse(request.params).timestamp).toBe(timestamp);
             expect(JSON.parse(request.params).path).toBe('/test_dependencyPath');
@@ -567,7 +482,7 @@ describe("Dashboard", function() {
 
         it("should throw an error if the server does not return 200", function () {
             var timestamp = 1234;
-            var promise = this.dashboard.dependencyModified(timestamp)
+            var promise = dashboard.dependencyModified(timestamp)
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -576,7 +491,7 @@ describe("Dashboard", function() {
                     // expected the error
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/project/' + this.dashboard.appId + '/dashboard/status');
+            expect(request.url).toBe('/insightservices/rest/v1/data/project/' + dashboard.appId + '/dashboard/status');
             expect(request.method).toBe('POST');
             expect(JSON.parse(request.params).timestamp).toBe(timestamp);
             expect(JSON.parse(request.params).path).toBe('/test_dependencyPath');
@@ -589,39 +504,28 @@ describe("Dashboard", function() {
 
     describe("getLastExecutionDate()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-            this.dashboard.scenarioId = 'SCENARIOID';
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should throw an error if the dashboard scenario id isnt known", function () {
-            this.dashboard.scenarioId = null;
-            expect(this.dashboard.getLastExecutionDate).toThrow();
+            dashboard.scenarioId = null;
+            expect(dashboard.getLastExecutionDate).toThrow();
         });
 
         it("should return the last execution timestamp", function () {
-            var promise = this.dashboard.getLastExecutionDate()
+            var promise = dashboard.getLastExecutionDate()
                 .then((timestamp) => {
                     expect(timestamp).toEqual(123456789);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + this.dashboard.scenarioId + '/data');
+            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + dashboard.scenarioId + '/data');
             expect(request.method).toBe('POST');
             request.respondWith(testResponses.getLastExecutionDate.response);
             return promise;
         });
 
         it("should throw an error if the server does not return 200", function () {
-            var promise = this.dashboard.getLastExecutionDate()
+            var promise = dashboard.getLastExecutionDate()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -630,7 +534,7 @@ describe("Dashboard", function() {
                     // expected the error
                 });
             var request = jasmine.Ajax.requests.mostRecent();
-            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + this.dashboard.scenarioId + '/data');
+            expect(request.url).toBe('/insightservices/rest/v1/data/scenario/' + dashboard.scenarioId + '/data');
             expect(request.method).toBe('POST');
             request.respondWith(testResponses.serverError);
             return promise;
@@ -639,18 +543,10 @@ describe("Dashboard", function() {
 
     describe("createFolder()", function () {
         beforeEach(function () {
-            jasmine.Ajax.install();
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
+            initDashboardObject();
         });
 
         it("should return an id if it successfully creates a folder", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
             var promise = dashboard.createFolder()
                 .then((id) => {
                     expect(id).toEqual('FOLDERID');
@@ -671,10 +567,6 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if it fails to create a folder", function () {
-            var dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
             var promise = dashboard.createFolder()
                 .then((id) => {
                     // should not success!
@@ -697,38 +589,31 @@ describe("Dashboard", function() {
 
     describe("findOrCreateFolder()", function () {
         beforeEach(function () {
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-        });
-
-        afterEach(function () {
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should return an id if the folder already exists", function (done) {
-            spyOn(this.dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            this.dashboard.findOrCreateFolder()
+            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            dashboard.findOrCreateFolder()
                 .then((id) => {
                     expect(id).toBe("FOLDERID");
-                    expect(this.dashboard.findFolder).toHaveBeenCalled();
-                    expect(this.dashboard.createFolder).not.toHaveBeenCalled();
+                    expect(dashboard.findFolder).toHaveBeenCalled();
+                    expect(dashboard.createFolder).not.toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return an id if the folder doesnt exist", function (done) {
-            spyOn(this.dashboard, "findFolder").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            this.dashboard.findOrCreateFolder()
+            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            dashboard.findOrCreateFolder()
                 .then((id) => {
                     expect(id).toBe("FOLDERID");
-                    expect(this.dashboard.findFolder).toHaveBeenCalled();
-                    expect(this.dashboard.createFolder).toHaveBeenCalled();
+                    expect(dashboard.findFolder).toHaveBeenCalled();
+                    expect(dashboard.createFolder).toHaveBeenCalled();
                     done();
                 });
         })
@@ -736,36 +621,29 @@ describe("Dashboard", function() {
 
     describe("findOrCreateScenario()", function () {
         beforeEach(function () {
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-        });
-
-        afterEach(function () {
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should return an id if the scenario already exists", function (done) {
-            spyOn(this.dashboard, "findScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(this.dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            this.dashboard.findOrCreateScenario()
+            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            dashboard.findOrCreateScenario()
                 .then((id) => {
                     expect(id).toBe("SCENARIOID");
-                    expect(this.dashboard.findScenario).toHaveBeenCalled();
-                    expect(this.dashboard.createScenario).not.toHaveBeenCalled();
+                    expect(dashboard.findScenario).toHaveBeenCalled();
+                    expect(dashboard.createScenario).not.toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return an id if the scenario doesnt exist", function (done) {
-            spyOn(this.dashboard, "findScenario").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            this.dashboard.findOrCreateScenario()
+            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            dashboard.findOrCreateScenario()
                 .then((id) => {
                     expect(id).toBe("SCENARIOID");
-                    expect(this.dashboard.findScenario).toHaveBeenCalled();
-                    expect(this.dashboard.createScenario).toHaveBeenCalled();
+                    expect(dashboard.findScenario).toHaveBeenCalled();
+                    expect(dashboard.createScenario).toHaveBeenCalled();
                     done();
                 });
         })
@@ -773,166 +651,141 @@ describe("Dashboard", function() {
 
     describe("ensureScenarioLoaded()", function () {
         beforeEach(function () {
-            this.dashboard = new Dashboard({
-                viewId: 'test_view',
-                executionMode: 'test_executionMode'
-            });
-        });
-
-        afterEach(function () {
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should do nothing if the scenario is already loaded", function (done) {
-            spyOn(this.dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(true));
-            spyOn(this.dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(this.dashboard, "doOverlay").and.returnValue(Promise.resolve(true));
-            this.dashboard.ensureScenarioLoaded()
+            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "doOverlay").and.returnValue(Promise.resolve(true));
+            dashboard.ensureScenarioLoaded()
                 .then(() => {
-                    expect(this.dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(this.dashboard.loadScenario).not.toHaveBeenCalled();
-                    expect(this.dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard.loadScenario).not.toHaveBeenCalled();
+                    expect(dashboard.doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should load the scenario and force the overlay if the scenario is not already loaded", function (done) {
-            spyOn(this.dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(this.dashboard, "doOverlay").and.returnValue(Promise.resolve(true));
-            this.dashboard.ensureScenarioLoaded()
+            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "doOverlay").and.returnValue(Promise.resolve(true));
+            dashboard.ensureScenarioLoaded()
                 .then(() => {
-                    expect(this.dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(this.dashboard.loadScenario).toHaveBeenCalled();
-                    expect(this.dashboard.doOverlay).toHaveBeenCalledWith(true);
+                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard.loadScenario).toHaveBeenCalled();
+                    expect(dashboard.doOverlay).toHaveBeenCalledWith(true);
                     done();
                 });
         });
     });
 
     describe("constructor()", function () {
-        beforeEach(function () {
-            jasmine.Ajax.install();
-
-            this.config = {
-                viewId: 'test_view', // name of the dashboard view
-                systemFolder: 'test_systemFolder', // location for the dashboard scenarios
-                executionMode: 'test_executionMode', // custom load mode for running the dashboard scenairo
-                executionPollingInterval: 100, // seconds between polls to see if the dashboard scenario has finished executing
-                dependencyCheck: true, // should the dependency check be run automatically
-                dependencyPollingInterval: 101, // seconds frequency for running the dependency check
-                dependencyPath: '/test_dependencyPath', // repository path relative to the app that the dependency check starts from
-                dependencyExclusions: ['test_dependencyExclusion'] // folders to exclude from the dependency check
-            };
-        });
-
-        afterEach(function () {
-            jasmine.Ajax.uninstall();
-            this.dashboard = null;
-        });
+        var config = {
+            viewId: 'test_view', // name of the dashboard view
+            systemFolder: 'test_systemFolder', // location for the dashboard scenarios
+            executionMode: 'test_executionMode', // custom load mode for running the dashboard scenairo
+            executionPollingInterval: 100, // seconds between polls to see if the dashboard scenario has finished executing
+            dependencyCheck: true, // should the dependency check be run automatically
+            dependencyPollingInterval: 101, // seconds frequency for running the dependency check
+            dependencyPath: '/test_dependencyPath', // repository path relative to the app that the dependency check starts from
+            dependencyExclusions: ['test_dependencyExclusion'] // folders to exclude from the dependency check
+        };
 
         it("should apply user config settings", function () {
             var self = this;
-            self.dashboard = new Dashboard(self.config);
-            $.each(self.dashboard.config, function (key, value) {
-                expect(self.dashboard.config[key]).toEqual(self.config[key]);
+            config.systemFolder = "test_systemFolder";
+            var temp = new Dashboard(config);
+            $.each(temp.config, function (key, value) {
+                expect(temp.config[key]).toEqual(config[key]);
             });
         });
 
         it("should throw an error if the system folder is not a folder in the root", function () {
             var self = this;
-            this.config.systemFolder = "folder/nested folder";
-            expect(Dashboard.bind(self.dashboard, self.config)).toThrow();
-        })
+            var temp;
+            config.systemFolder = "folder/nested folder";
+            expect(Dashboard.bind(temp, config)).toThrow();
+        });
     });
 
     describe("start()", function () {
         beforeEach(function () {
-            //jasmine.Ajax.install();
-
-            this.config = {
-                viewId: 'test_view', // name of the dashboard view
-                executionMode: 'test_executionMode'
-            };
-            this.dashboard = new Dashboard(this.config);
-        });
-
-        afterEach(function () {
-            //jasmine.Ajax.uninstall();
-            this.dashboard = null;
+            initDashboardObject();
         });
 
         it("should return the scenario id given the system folder and dashboard scenario already exist", function (done) {
-            spyOn(this.dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "findScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(this.dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(this.dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(true));
-            spyOn(this.dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(this.dashboard, "doOverlay").and.returnValue(true);
+            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "doOverlay").and.returnValue(true);
 
-            this.dashboard.start()
+            dashboard.start()
                 .then((ids) => {
                     expect(ids[0]).toBe('SCENARIOID');
-                    expect(this.dashboard.findFolder).toHaveBeenCalled();
-                    expect(this.dashboard.createFolder).not.toHaveBeenCalled();
-                    expect(this.dashboard.shareFolder).not.toHaveBeenCalled();
-                    expect(this.dashboard.findScenario).toHaveBeenCalled();
-                    expect(this.dashboard.createScenario).not.toHaveBeenCalled();
-                    expect(this.dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(this.dashboard.loadScenario).not.toHaveBeenCalled();
-                    expect(this.dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard.findFolder).toHaveBeenCalled();
+                    expect(dashboard.createFolder).not.toHaveBeenCalled();
+                    expect(dashboard.shareFolder).not.toHaveBeenCalled();
+                    expect(dashboard.findScenario).toHaveBeenCalled();
+                    expect(dashboard.createScenario).not.toHaveBeenCalled();
+                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard.loadScenario).not.toHaveBeenCalled();
+                    expect(dashboard.doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return the scenario id given the system folder exists and the dashboard scenario doesnt", function (done) {
-            spyOn(this.dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "findScenario").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(this.dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(this.dashboard, "doOverlay").and.returnValue(true);
+            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "doOverlay").and.returnValue(true);
 
-            this.dashboard.start()
+            dashboard.start()
                 .then((ids) => {
                     expect(ids[0]).toBe('SCENARIOID');
-                    expect(this.dashboard.findFolder).toHaveBeenCalled();
-                    expect(this.dashboard.createFolder).not.toHaveBeenCalled();
-                    expect(this.dashboard.shareFolder).not.toHaveBeenCalled();
-                    expect(this.dashboard.findScenario).toHaveBeenCalled();
-                    expect(this.dashboard.createScenario).toHaveBeenCalled();
-                    expect(this.dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(this.dashboard.loadScenario).toHaveBeenCalled();
-                    expect(this.dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard.findFolder).toHaveBeenCalled();
+                    expect(dashboard.createFolder).not.toHaveBeenCalled();
+                    expect(dashboard.shareFolder).not.toHaveBeenCalled();
+                    expect(dashboard.findScenario).toHaveBeenCalled();
+                    expect(dashboard.createScenario).toHaveBeenCalled();
+                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard.loadScenario).toHaveBeenCalled();
+                    expect(dashboard.doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return the scenario id given neither the system folder nor dashboard scenario exist", function (done) {
-            spyOn(this.dashboard, "findFolder").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(this.dashboard, "shareFolder").and.returnValue("FOLDERID");
-            spyOn(this.dashboard, "findScenario").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(this.dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
-            spyOn(this.dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(this.dashboard, "doOverlay").and.returnValue(true);
+            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "shareFolder").and.returnValue("FOLDERID");
+            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "doOverlay").and.returnValue(true);
 
-            this.dashboard.start()
+            dashboard.start()
                 .then((ids) => {
                     expect(ids[0]).toBe('SCENARIOID');
-                    expect(this.dashboard.findFolder).toHaveBeenCalled();
-                    expect(this.dashboard.createFolder).toHaveBeenCalled();
-                    expect(this.dashboard.shareFolder).toHaveBeenCalled();
-                    expect(this.dashboard.findScenario).toHaveBeenCalled();
-                    expect(this.dashboard.createScenario).toHaveBeenCalled();
-                    expect(this.dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(this.dashboard.loadScenario).toHaveBeenCalled();
-                    expect(this.dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard.findFolder).toHaveBeenCalled();
+                    expect(dashboard.createFolder).toHaveBeenCalled();
+                    expect(dashboard.shareFolder).toHaveBeenCalled();
+                    expect(dashboard.findScenario).toHaveBeenCalled();
+                    expect(dashboard.createScenario).toHaveBeenCalled();
+                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard.loadScenario).toHaveBeenCalled();
+                    expect(dashboard.doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
