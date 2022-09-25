@@ -20,10 +20,15 @@
 	<link href="css/dashboardframework.css" rel="stylesheet" type="text/css">
 
 	<vdl-page>
-		<dashboard-overlay></dashboard-overlay>
-		<div id="refresh">
-			<dashboard-refresh-button mode="loadDashboard"></dashboard-refresh-button>
-		</div>
+		<vdl-header>
+            <vdl-action-group name="action_refresh">
+                <vdl-action command="=dashboard.refresh('loadDashboard')"></vdl-action>
+            </vdl-action-group>
+        </vdl-header>
+        <dashboard-overlay></dashboard-overlay>
+        <div id="refresh">
+            <vdl-button label="Refresh" vdl-event="click:actions.action_refresh"></vdl-button>
+        </div>
 		<vdl-section id="error-message" layout="fluid" vdl-if="=scenarios.length != 1">
 			<div class="alert alert-danger">
 				<button type="button" class="close" data-dismiss="alert">×</button> <i class="fico-icon-notification-solid"></i> <strong>Error:</strong> <span class="error-text">Failed to generate dashboard.

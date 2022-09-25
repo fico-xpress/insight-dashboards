@@ -15,107 +15,109 @@
     limitations under the License.
 -->
 <vdl version="4.7">
-	<script src="js/dashboardframework.js" type="text/javascript"></script>
-	<script src="js/dashboard1.js" type="text/javascript"></script>
-	<link href="css/dashboardframework.css" rel="stylesheet" type="text/css">
-	
-	<vdl-page>
-		<dashboard-overlay></dashboard-overlay>
-		<div id="refresh">
-			<dashboard-refresh-button mode="loadDashboard"></dashboard-refresh-button>
-		</div>
-		<vdl-section id="error-message" layout="fluid" vdl-if="=scenarios.length != 1">
-			<div class="alert alert-danger">
-				<button type="button" class="close" data-dismiss="alert">×</button> <i class="fico-icon-notification-solid"></i> <strong>Error:</strong> <span class="error-text">Failed to generate dashboard.
-                Please contact your system administrator for help.</span> </div>
-		</vdl-section>
-		<vdl-section id="outofdate-message" layout="fluid" vdl-if="=!dashboard.current()">
-			<div class="alert alert-info">
-				<button type="button" class="close" data-dismiss="info">×</button> <i class="fico-icon-notification-solid"></i> <strong>Info:</strong> <span class="info-text">Dashboard may be out of date. Click the refresh button to re-generate with the latest data.</span> </div>
-		</vdl-section>
-		<vdl-section class="dashboard" layout="fluid" vdl-if="=scenarios.length == 1">
-			<vdl-row>
-				<vdl-column size="6">
-					<div id="kpi-tile" class="tile">
-						<div class="tile-header">
-							<h4>Repository stats</h4></div>
-						<div class="tile-contents">
-							<div class="kpi-container">
-								<div class="kpi-title">Total Folders</div>
-								<div class="kpi"><span vdl-text="=scenario.entities.totalFolders.value"></span></div>
-							</div>
-							<div class="kpi-container">
-								<div class="kpi-title">Total Scenarios</div>
-								<div class="kpi"><span vdl-text="=scenario.entities.totalScenarios.value"></span></div>
-							</div>
-							<div class="kpi-container">
-								<div class="kpi-title">Total Users</div>
-								<div class="kpi"><span vdl-text="=1"></span></div>
-							</div>
-						</div>
-					</div>
-				</vdl-column>
-				<vdl-column size="6">
-					<div id="workflow-tile" class="tile">
-						<div class="tile-header">
-							<h4>A status scalar collected across scenarios</h4></div>
-						<div class="tile-contents">
-							<div class="workflow-container">
-								<div class="workflow-label">Submitted</div>
-								<div class="workflow-total">
-									<div class="submitted counter" vdl-repeat="=t in _.range(scenario.entities.totalSubmitted.value)"></div>
-								</div>
-							</div>
-							<div class="workflow-container">
-								<div class="workflow-label">In Progress</div>
-								<div class="workflow-total">
-									<div class="inprogress counter" vdl-repeat="=t in _.range(scenario.entities.totalInProgress.value)"></div>
-								</div>
-							</div>
-							<div class="workflow-container">
-								<div class="workflow-label">Approved</div>
-								<div class="workflow-total">
-									<div class="approved counter" vdl-repeat="=t in _.range(scenario.entities.totalApproved.value)"></div>
-								</div>
-							</div>
-							<div class="workflow-container">
-								<div class="workflow-label">Rejected</div>
-								<div class="workflow-total">
-									<div class="rejected counter" vdl-repeat="=t in _.range(scenario.entities.totalRejected.value)"></div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</vdl-column>
-			</vdl-row>
-			<vdl-row>
-				<vdl-column size="6">
-					<div id="score-tile" class="tile">
-						<div class="tile-header">
-							<h4>A score scalar collected across scenarios</h4></div>
-						<div class="tile-contents">
-							<vdl-chart class="score-chart" modifier="=chartModifier">
-								<vdl-chart-series entity="scores"></vdl-chart-series>
-							</vdl-chart>
-						</div>
-					</div>
-				</vdl-column>
-				<vdl-column size="6">
-					<div id="attachments-tile" class="tile">
-						<div class="tile-header">
-							<h4>Information from app attachments</h4></div>
-						<div class="attachment-table tile-contents">
-							<vdl-table>
-								<vdl-table-column set="attachmentFilename">Filename</vdl-table-column>
-								<vdl-table-column entity="attachmentDescription" width="250px">Description</vdl-table-column>
-								<vdl-table-column entity="attachmentSize">Size</vdl-table-column>
-								<vdl-table-column entity="attachmentModifiedTime">Modified</vdl-table-column>
-								<vdl-table-column entity="attachmentModifiedUser">User</vdl-table-column>
-							</vdl-table>
-						</div>
-					</div>
-				</vdl-column>
-			</vdl-row>
-		</vdl-section>
-	</vdl-page>
+    <script src="js/dashboardframework.js" type="text/javascript"></script>
+    <script src="js/dashboard1.js" type="text/javascript"></script>
+    <link href="css/dashboardframework.css" rel="stylesheet" type="text/css">
+    <vdl-page>
+        <vdl-header>
+            <vdl-action-group name="action_refresh">
+                <vdl-action command="=dashboard.refresh('loadDashboard')"></vdl-action>
+            </vdl-action-group>
+        </vdl-header>
+        <dashboard-overlay></dashboard-overlay>
+        <div id="refresh">
+            <vdl-button label="Refresh" vdl-event="click:actions.action_refresh"></vdl-button>
+        </div>
+        <vdl-section id="error-message" layout="fluid" vdl-if="=scenarios.length != 1">
+            <div class="alert alert-danger"><button type="button" class="close" data-dismiss="alert">×</button><i class="fico-icon-notification-solid"></i><strong><span vdl-text="Error:"></span></strong><span class="error-text" vdl-text="Failed to generate dashboard.
+                Please contact your system administrator for help."></span></div>
+        </vdl-section>
+        <vdl-section id="outofdate-message" layout="fluid" vdl-if="=!dashboard.current()">
+            <div class="alert alert-info"><button type="button" class="close" data-dismiss="info">×</button><i class="fico-icon-notification-solid"></i><strong><span vdl-text="Info:"></span></strong><span class="info-text" vdl-text="Dashboard may be out of date. Click the refresh button to re-generate with the latest data."></span></div>
+        </vdl-section>
+        <vdl-section class="dashboard" layout="fluid" vdl-if="=scenarios.length == 1">
+            <vdl-row>
+                <vdl-column size="6">
+                    <div id="kpi-tile" class="tile">
+                        <div class="tile-header">
+                            <h4><span vdl-text="Repository stats"></span></h4></div>
+                        <div class="tile-contents">
+                            <div class="kpi-container">
+                                <div class="kpi-title"><span vdl-text="Total Folders"></span></div>
+                                <div class="kpi"><span vdl-text="=scenario.entities.totalFolders.value"></span></div>
+                            </div>
+                            <div class="kpi-container">
+                                <div class="kpi-title"><span vdl-text="Total Scenarios"></span></div>
+                                <div class="kpi"><span vdl-text="=scenario.entities.totalScenarios.value"></span></div>
+                            </div>
+                            <div class="kpi-container">
+                                <div class="kpi-title"><span vdl-text="Total Users"></span></div>
+                                <div class="kpi"><span vdl-text="=1"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                </vdl-column>
+                <vdl-column size="6">
+                    <div id="workflow-tile" class="tile">
+                        <div class="tile-header">
+                            <h4><span vdl-text="A status scalar collected across scenarios"></span></h4></div>
+                        <div class="tile-contents">
+                            <div class="workflow-container">
+                                <div class="workflow-label"><span vdl-text="Submitted"></span></div>
+                                <div class="workflow-total">
+                                    <div class="submitted counter" vdl-repeat="=t in _.range(scenario.entities.totalSubmitted.value)"></div>
+                                </div>
+                            </div>
+                            <div class="workflow-container">
+                                <div class="workflow-label"><span vdl-text="In Progress"></span></div>
+                                <div class="workflow-total">
+                                    <div class="inprogress counter" vdl-repeat="=t in _.range(scenario.entities.totalInProgress.value)"></div>
+                                </div>
+                            </div>
+                            <div class="workflow-container">
+                                <div class="workflow-label"><span vdl-text="Approved"></span></div>
+                                <div class="workflow-total">
+                                    <div class="approved counter" vdl-repeat="=t in _.range(scenario.entities.totalApproved.value)"></div>
+                                </div>
+                            </div>
+                            <div class="workflow-container">
+                                <div class="workflow-label"><span vdl-text="Rejected"></span></div>
+                                <div class="workflow-total">
+                                    <div class="rejected counter" vdl-repeat="=t in _.range(scenario.entities.totalRejected.value)"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </vdl-column>
+            </vdl-row>
+            <vdl-row>
+                <vdl-column size="6">
+                    <div id="score-tile" class="tile">
+                        <div class="tile-header">
+                            <h4><span vdl-text="A score scalar collected across scenarios"></span></h4></div>
+                        <div class="tile-contents">
+                            <vdl-chart class="score-chart" modifier="=chartModifier">
+                                <vdl-chart-series entity="scores"></vdl-chart-series>
+                            </vdl-chart>
+                        </div>
+                    </div>
+                </vdl-column>
+                <vdl-column size="6">
+                    <div id="attachments-tile" class="tile">
+                        <div class="tile-header">
+                            <h4><span vdl-text="Information from app attachments"></span></h4></div>
+                        <div class="attachment-table tile-contents">
+                            <vdl-table>
+                                <vdl-table-column set="attachmentFilename" heading="Filename"></vdl-table-column>
+                                <vdl-table-column entity="attachmentDescription" heading="Description" width="250px"></vdl-table-column>
+                                <vdl-table-column entity="attachmentSize" heading="Size"></vdl-table-column>
+                                <vdl-table-column entity="attachmentModifiedTime" heading="Modified"></vdl-table-column>
+                                <vdl-table-column entity="attachmentModifiedUser" heading="User"></vdl-table-column>
+                            </vdl-table>
+                        </div>
+                    </div>
+                </vdl-column>
+            </vdl-row>
+        </vdl-section>
+    </vdl-page>
 </vdl>

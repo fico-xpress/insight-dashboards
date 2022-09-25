@@ -49,7 +49,7 @@ Dashboard.prototype = {
                 function (response) {
                     var found = false;
                     $.each(response.items, function (i, v) {
-                        if (self.config.systemFolder == v.displayName) {
+                        if (self.config.systemFolder === v.displayName) {
                             found = v.id;
                         }
                     });
@@ -463,6 +463,55 @@ Dashboard.prototype = {
                 insight.getView().showErrorMessage(error);
                 return []; // select no scenario
             });
+    },
+    
+    refresh: function(execMode) {
+        return new Promise(function (resolve, reject) {
+            insight.getView().withScenarios(0)
+                .withSummaryData()
+                .once(function (scenarios) {
+                    try {
+                        resolve(scenarios[0].getSummaryData().isLoaded());
+                    } catch (exc) {
+                        reject(exc);
+                    }
+                })
+                .start();
+        })
+        .then(function () {
+            return insight.getView().getScenarioProperties(0);
+        })
+        .then(function (props) {
+            return props.execute(execMode, {
+                suppressClearPrompt: true // we dont want the prompt for a refresh
+            });
+        })
+        .then(function () {
+            // show the custom overlay
+            dashboard.doOverlay(true); /* global dashboard */
+        })
+        .catch(function (error) {
+            var title = 'Failed to refresh the dashboard';
+            var message;
+            switch (error.status) {
+                case 403:
+                    message = 'Insufficient rights to execute the dashboard scenario.';
+                    break;
+                case 404:
+                    message = 'Internal error. The scenario or execution mode "' +
+                        execMode +
+                        '" does not exist.';
+                    break;
+                case 423:
+                    message = 'Internal error. The scenario is locked.';
+                    break;
+                default:
+                    message = error.message;
+                    break;
+            }
+            insight.getView().showErrorMessage(title + ": " + message);
+            throw error;
+        });
     }
 };
 
@@ -541,118 +590,5 @@ function Dashboard(userconfig) {
         }
     });
 
-    /* 
-    Custom execute button which instigates the overlay
-    */
-    VDL('dashboard-refresh-button', {
-        tag: 'dashboard-refresh-button',
-        isContainer: false,
-        attributes: [{
-            name: 'mode',
-            description: 'The execution mode to issue to the scenario. Can be one of the built-in modes: "RUN", "LOAD", ' +
-                'or a custom execution mode for the app. Defaults to "RUN".',
-            defaultValue: 'RUN',
-            valueType: 'ExecutionMode'
-        }, {
-            name: 'caption',
-            description: 'The text to display on the button. Defaults to "Refresh"'
-        }],
-
-        template: '' +
-            '<button type="button" class="btn btn-primary" ' +
-            '  data-bind="click: onClick">' +
-            '  <span data-bind="text: caption"></span>' +
-            '  <!-- ko template: { nodes: $componentTemplateNodes} --><!-- /ko -->' +
-            '</button>',
-
-        createViewModel: function (params) {
-            var view = insight.getView();
-
-            var execModes = view.getApp().getExecutionModes();
-
-            var vm = {
-                caption: params.caption,
-                onClick: function (ctx, evt) {
-                    var unwrappedParams = _.mapValues(params, ko.unwrap);
-                    // dashboard scenario always the first
-                    var scenarioIndex = 0;
-
-                    var execMode = execModes[unwrappedParams.executionMode];
-
-                    evt.currentTarget.blur();
-
-                    return new Promise(function (resolve, reject) {
-                        view.withScenarios(scenarioIndex)
-                            .withSummaryData()
-                            .once(function (scenarios) {
-                                try {
-                                    resolve(scenarios[0].getSummaryData().isLoaded());
-                                } catch (exc) {
-                                    reject(exc);
-                                }
-                            })
-                            .start();
-                    })
-                    .then(function (isLoaded) {
-                        if (!isLoaded && !(execMode && execMode.getClearsInputData())) {
-                            throw new Error(
-                                'Cannot execute scenario as it is currently unloaded. Please load input data first.',
-                                'Executing scenario'
-                            );
-                        }
-                        return;
-                    })
-                    .then(function () {
-                        return view.getScenarioProperties(scenarioIndex);
-                    })
-                    .then(function (props) {
-                        return props.execute(unwrappedParams.executionMode, {
-                            suppressClearPrompt: true // we dont want the prompt for a refresh
-                        });
-                    })
-                    .then(function () {
-                        // show the custom overlay
-                        dashboard.doOverlay(true); /* global dashboard */
-                    })
-                    .catch(function (error) {
-                        var title = 'Scenario Execution Failed';
-                        var message;
-                        switch (error.status) {
-                            case 403:
-                                message = 'Insufficient rights to modify the scenario.';
-                                break;
-                            case 404:
-                                message = 'The scenario or execution mode "' +
-                                    unwrappedParams.executionMode +
-                                    '" does not exist.';
-                                break;
-                            case 423:
-                                message = 'The scenario is locked.';
-                                break;
-                            default:
-                                message = error.message;
-                                break;
-                        }
-                        insight.getView().showErrorMessage(title + ": " + message);
-                        throw error;
-                    });
-                }
-            };
-
-            return vm;
-        },
-
-        transform: function (element, attributes, api) {
-            var builder = api.getComponentParamsBuilder(element);
-
-            var executionMode = attributes.mode && attributes.mode.rawValue || "RUN";
-            builder.addParam('executionMode', executionMode);
-
-            var caption = attributes.caption && attributes.caption.rawValue;
-            if (!caption)
-                caption = "Refresh";
-            builder.addParam('caption', caption);
-        }
-    });
     return self;
 };
