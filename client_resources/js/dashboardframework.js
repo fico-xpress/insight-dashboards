@@ -35,8 +35,95 @@
 
 
 Dashboard.prototype = {
-    // find a folder in the root
-    findFolder: function () {
+    /*
+    PUBLIC INTERFACE
+    */
+    start: function () {
+        var self = this;
+
+        // get the API base
+        // use the resolution method if available, to be path based routing comptabile
+        if (typeof insight.resolveRestEndpoint === "function")
+            self.apiBase = insight.resolveRestEndpoint('/insightservices/rest/v1/');
+        else
+        // if the method doesnt exist, cant be using PBR so safe to assume default base
+            self.apiBase = '/insightservices/rest/v1/';
+
+        // get the user
+        return insight.getView().getUser()
+            .then(function (user) {
+                self.userId = user.getUsername();
+                return self.userId;
+            })
+            .then(self._findOrCreateSystemFolder.bind(this))
+            .then(self._findOrCreateUserDashboardScenario.bind(this))
+            .then(self._ensureUserDashboardScenarioLoaded.bind(this))
+            .then(function () {
+                // if we are doing dependency checking then start the checking
+                if (self.config.dependencyCheck)
+                    self._doDependencyChecking();
+                return [self.scenarioId];
+            })
+
+            // no dashboard scenario selected is our error state
+            .catch(function (error) {
+                insight.getView().showErrorMessage(error);
+                return []; // select no scenario
+            });
+    },
+    refresh: function(execMode) {
+        return new Promise(function (resolve, reject) {
+            insight.getView().withScenarios(0)
+                .withSummaryData()
+                .once(function (scenarios) {
+                    try {
+                        resolve(scenarios[0].getSummaryData().isLoaded());
+                    } catch (exc) {
+                        reject(exc);
+                    }
+                })
+                .start();
+        })
+            .then(function () {
+                return insight.getView().getScenarioProperties(0);
+            })
+            .then(function (props) {
+                return props.execute(execMode, {
+                    suppressClearPrompt: true // we dont want the prompt for a refresh
+                });
+            })
+            .then(function () {
+                // show the custom overlay
+                dashboard._doOverlay(true); /* global dashboard */
+            })
+            .catch(function (error) {
+                var title = 'Failed to refresh the dashboard';
+                var message;
+                switch (error.status) {
+                    case 403:
+                        message = 'Insufficient rights to execute the dashboard scenario.';
+                        break;
+                    case 404:
+                        message = 'Internal error. The scenario or execution mode "' +
+                            execMode +
+                            '" does not exist.';
+                        break;
+                    case 423:
+                        message = 'Internal error. The scenario is locked.';
+                        break;
+                    default:
+                        message = error.message;
+                        break;
+                }
+                insight.getView().showErrorMessage(title + ": " + message);
+                throw error;
+            });
+    },
+
+    /*
+    PRIVATE INTERFACE
+    */
+    _findSystemFolder: function () {
         var self = this;
 
         return $.ajax({
@@ -60,9 +147,7 @@ Dashboard.prototype = {
                 }
             );
     },
-
-    // create a folder in the root
-    createFolder: function () {
+    _createSystemFolder: function () {
         var self = this;
 
         var payload = {
@@ -91,18 +176,17 @@ Dashboard.prototype = {
                 }
             );
     },
-
-    findOrCreateFolder: function() {
+    _findOrCreateSystemFolder: function() {
         var self=this;
 
-        return self.findFolder()
+        return self._findSystemFolder()
         .then(function (found) {
             if (found) {
                 self.folderId = found;
                 return found;
             } else {
                 // folder doesnt exist so create it
-                return self.createFolder()
+                return self._createSystemFolder()
                     .then(function (created) {
                         self.folderId = created;
                         // return the id
@@ -110,13 +194,12 @@ Dashboard.prototype = {
                     })
                     // and set it to fully shared
                     .then(function () {
-                        return self.shareFolder();
+                        return self._shareSystemFolder();
                     });
             }
         });
     },
-
-    shareFolder: function () {
+    _shareSystemFolder: function () {
         var self = this;
 
         if (!self.folderId)
@@ -143,9 +226,7 @@ Dashboard.prototype = {
                 }
             );
     },
-
-    // find a scenario in a given folder
-    findScenario: function () {
+    _findUserDashboardScenario: function () {
         var self = this;
 
         if (!self.userId)
@@ -175,9 +256,7 @@ Dashboard.prototype = {
                 }
             );
     },
-
-    // create a scenario in a given folder
-    createScenario: function () {
+    _createUserDashboardScenario: function () {
         var self = this;
 
         var scenarioName = self.config.viewId + "." + self.userId;
@@ -206,9 +285,26 @@ Dashboard.prototype = {
                 }
             );
     },
+    _findOrCreateUserDashboardScenario: function(){
+        var self=this;
 
-    // check if the scenario is loaded
-    isScenarioLoaded: function () {
+        return self._findUserDashboardScenario()
+            .then(function (found) {
+                // found the scenario
+                if (found) {
+                    self.scenarioId = found;
+                    return self.scenarioId;
+                } else {
+                    return self._createUserDashboardScenario()
+                        .then(function (created) {
+                            // return the id
+                            self.scenarioId = created;
+                            return self.scenarioId;
+                        });
+                }
+            });
+    },
+    _isUserDashboardScenarioLoaded: function () {
         var self = this;
 
         if (!self.scenarioId)
@@ -229,9 +325,7 @@ Dashboard.prototype = {
                 }
             );
     },
-
-    // loads the dashboard scenario
-    loadScenario: function () {
+    _loadUserDashboardScenario: function () {
         var self = this;
 
         if (!self.scenarioId)
@@ -260,29 +354,7 @@ Dashboard.prototype = {
                 }
             );
     },
-    
-    findOrCreateScenario: function(){
-        var self=this;
-        
-        return self.findScenario()
-            .then(function (found) {
-                // found the scenario
-                if (found) {
-                    self.scenarioId = found;
-                    return self.scenarioId;
-                } else {
-                    return self.createScenario()
-                        .then(function (created) {
-                            // return the id
-                            self.scenarioId = created;
-                            return self.scenarioId;
-                        });
-                }
-            });
-    },
-
-    // test for executing
-    isExecuting: function () {
+    _isUserDashboardScenarioExecuting: function () {
         var self = this;
 
         if (!self.scenarioId)
@@ -303,29 +375,27 @@ Dashboard.prototype = {
                 }
             );
     },
-    
-    ensureScenarioLoaded: function() {
+    _ensureUserDashboardScenarioLoaded: function() {
         var self=this;
         
-        return self.isScenarioLoaded()
+        return self._isUserDashboardScenarioLoaded()
             .then(function (loaded) {
                 if (!loaded) {
                     // if the scenario is not loaded but is queued or executing already this will fail
-                    self.loadScenario()
+                    self._loadUserDashboardScenario()
                         .then(function () {
                             // we know the scenario will be executing and to avoid any potential race condition we will
                             // show the overlay explicitly rather than test for execution status
-                            self.doOverlay(true);
+                            self._doOverlay(true);
                         });
                 }
                 else {
                     // check if we need to put up the overlay for an already executing scenario
-                    self.doOverlay();
+                    self._doOverlay();
                 }
             });
     },
-
-    showOverlay: function (show) {
+    _showOverlay: function (show) {
         var self = this;
 
         if (show) {
@@ -336,26 +406,24 @@ Dashboard.prototype = {
         else
             $(document).trigger("dashboard.overlay.hide"); // this will hide the overlay
     },
-
-    // check if scenario is already queued/executing
-    doOverlay: function (force) {
+    _doOverlay: function (force) {
         var self = this;
         
         if (force != undefined) {
             if (force)
-                self.showOverlay(true);
+                self._showOverlay(true);
             else
-                self.showOverlay(false);
+                self._showOverlay(false);
         }
 
         // start polling every interval
         self.polling = window.setInterval(function () {
-                self.isExecuting()
+                self._isUserDashboardScenarioExecuting()
                     .then(function (status) {
                         if (status) { // executing
-                            self.showOverlay(true);
+                            self._showOverlay(true);
                         } else {
-                            self.showOverlay(false);
+                            self._showOverlay(false);
                             window.clearInterval(self.polling);
                         }
                     });
@@ -363,8 +431,7 @@ Dashboard.prototype = {
             1000 * self.config.executionPollingInterval
         );
     },
-
-    dependencyModified: function (t) {
+    _dependencyModified: function (t) {
         var self = this;
         var payload = {
             timestamp: t,
@@ -383,8 +450,7 @@ Dashboard.prototype = {
                 return response.dataModifiedSinceTimestamp;
             });
     },
-
-    getLastExecutionDate: function () {
+    _getLastExecutionDate: function () {
         // needs to be a rest call as scenario selection not yet active
         var self = this;
 
@@ -404,14 +470,13 @@ Dashboard.prototype = {
                 return response.summary.lastExecutionDate;
             });
     },
-
-    doDependencyChecking: function () {
+    _doDependencyChecking: function () {
         var self = this;
 
         // do an immediate check
-        self.getLastExecutionDate()
+        self._getLastExecutionDate()
             .then(function (lastModified) {
-                return self.dependencyModified(lastModified);
+                return self._dependencyModified(lastModified);
             })
             .then(function (modified) {
                 self.current(!modified);
@@ -419,9 +484,9 @@ Dashboard.prototype = {
 
         // and start polling 
         window.setInterval(function () {
-                self.getLastExecutionDate()
+                self._getLastExecutionDate()
                     .then(function (lastModified) {
-                        return self.dependencyModified(lastModified);
+                        return self._dependencyModified(lastModified);
                     })
                     .then(function (modified) {
                         self.current(!modified);
@@ -429,89 +494,6 @@ Dashboard.prototype = {
             },
             1000 * self.config.dependencyPollingInterval
         );
-    },
-
-    start: function () {
-        var self = this;
-        
-        // get the API base
-        // use the resolution method if available, to be path based routing comptabile
-        if (typeof insight.resolveRestEndpoint === "function")
-            self.apiBase = insight.resolveRestEndpoint('/insightservices/rest/v1/');
-        else
-        // if the method doesnt exist, cant be using PBR so safe to assume default base
-            self.apiBase = '/insightservices/rest/v1/';
-
-        // get the user
-        return insight.getView().getUser()
-            .then(function (user) {
-                self.userId = user.getUsername();
-                return self.userId;
-            })
-            .then(self.findOrCreateFolder.bind(this))
-            .then(self.findOrCreateScenario.bind(this))
-            .then(self.ensureScenarioLoaded.bind(this))
-            .then(function () {
-                // if we are doing dependency checking then start the checking
-                if (self.config.dependencyCheck)
-                    self.doDependencyChecking();
-                return [self.scenarioId];
-            })
-
-            // no dashboard scenario selected is our error state
-            .catch(function (error) {
-                insight.getView().showErrorMessage(error);
-                return []; // select no scenario
-            });
-    },
-    
-    refresh: function(execMode) {
-        return new Promise(function (resolve, reject) {
-            insight.getView().withScenarios(0)
-                .withSummaryData()
-                .once(function (scenarios) {
-                    try {
-                        resolve(scenarios[0].getSummaryData().isLoaded());
-                    } catch (exc) {
-                        reject(exc);
-                    }
-                })
-                .start();
-        })
-        .then(function () {
-            return insight.getView().getScenarioProperties(0);
-        })
-        .then(function (props) {
-            return props.execute(execMode, {
-                suppressClearPrompt: true // we dont want the prompt for a refresh
-            });
-        })
-        .then(function () {
-            // show the custom overlay
-            dashboard.doOverlay(true); /* global dashboard */
-        })
-        .catch(function (error) {
-            var title = 'Failed to refresh the dashboard';
-            var message;
-            switch (error.status) {
-                case 403:
-                    message = 'Insufficient rights to execute the dashboard scenario.';
-                    break;
-                case 404:
-                    message = 'Internal error. The scenario or execution mode "' +
-                        execMode +
-                        '" does not exist.';
-                    break;
-                case 423:
-                    message = 'Internal error. The scenario is locked.';
-                    break;
-                default:
-                    message = error.message;
-                    break;
-            }
-            insight.getView().showErrorMessage(title + ": " + message);
-            throw error;
-        });
     }
 };
 

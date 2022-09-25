@@ -19,7 +19,7 @@ var testResponses = {
     serverError: {
         status: 500
     },
-    findFolder: {
+    _findFolder: {
         someFolders: {
             status: 200,
             responseText: JSON.stringify({
@@ -42,7 +42,7 @@ var testResponses = {
             })
         }
     },
-    createFolder: {
+    _createFolder: {
         success: {
             status: 200,
             responseText: null // dynamic

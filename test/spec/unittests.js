@@ -75,63 +75,63 @@ describe("Dashboard", function() {
         jasmine.Ajax.uninstall();
     });
 
-    describe("findFolder()", function () {
+    describe("_findSystemFolder()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should resolve to true if the system folder exists", function () {
-            var promise = dashboard.findFolder()
+            var promise = dashboard._findSystemFolder()
                 .then((found) => {
                     expect(found).toEqual('FOLDERID');
                 });
             var request = jasmine.Ajax.requests.mostRecent();
             expect(request.url).toBe('/insightservices/rest/v1/data/project/APPID/folder');
             expect(request.method).toBe('GET');
-            request.respondWith(testResponses.findFolder.someFolders);
+            request.respondWith(testResponses._findFolder.someFolders);
             return promise;
         });
 
         it("should resolve to true if the system folder name has been customized and exists", function () {
             dashboard.config.systemFolder = "customfolder";
-            var promise = dashboard.findFolder()
+            var promise = dashboard._findSystemFolder()
                 .then((found) => {
                     expect(found).toEqual('CUSTOMID');
                 });
             var request = jasmine.Ajax.requests.mostRecent();
             expect(request.url).toBe('/insightservices/rest/v1/data/project/APPID/folder');
             expect(request.method).toBe('GET');
-            request.respondWith(testResponses.findFolder.someFolders);
+            request.respondWith(testResponses._findFolder.someFolders);
             return promise;
         });
 
         it("should resolve to false if the system folder does not exist", function () {
             dashboard.config.systemFolder = 'folderdoesntexist';
-            var promise = dashboard.findFolder()
+            var promise = dashboard._findSystemFolder()
                 .then((found) => {
                     expect(found).toBe(false);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
             expect(request.url).toBe('/insightservices/rest/v1/data/project/APPID/folder');
             expect(request.method).toBe('GET');
-            request.respondWith(testResponses.findFolder.someFolders);
+            request.respondWith(testResponses._findFolder.someFolders);
             return promise;
         });
 
         it("should resolve to false if no folders exist", function () {
-            var promise = dashboard.findFolder()
+            var promise = dashboard._findSystemFolder()
                 .then((found) => {
                     expect(found).toBe(false);
                 });
             var request = jasmine.Ajax.requests.mostRecent();
             expect(request.url).toBe('/insightservices/rest/v1/data/project/APPID/folder');
             expect(request.method).toBe('GET');
-            request.respondWith(testResponses.findFolder.noFolders);
+            request.respondWith(testResponses._findFolder.noFolders);
             return promise;
         });
 
         it("should throw an error if the call to the server doesnt return 200", function () {
-            var promise = dashboard.findFolder()
+            var promise = dashboard._findSystemFolder()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -147,13 +147,13 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("createFolder()", function () {
+    describe("_createSystemFolder()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should return an id if it successfully creates a folder", function () {
-            var promise = dashboard.createFolder()
+            var promise = dashboard._createSystemFolder()
                 .then((id) => {
                     expect(id).toEqual('FOLDERID');
                 });
@@ -163,7 +163,7 @@ describe("Dashboard", function() {
             expect(request.method).toBe('POST');
             expect(JSON.parse(request.params).displayName).toBe("_system");
             expect(JSON.parse(request.params).parent.id).toBe("APPID");
-            var response = testResponses.createFolder.success;
+            var response = testResponses._createFolder.success;
             response.responseText = JSON.stringify({
                 id: "FOLDERID",
                 displayName: "_system"
@@ -173,7 +173,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if it fails to create a folder", function () {
-            var promise = dashboard.createFolder()
+            var promise = dashboard._createSystemFolder()
                 .then((id) => {
                     // should not success!
                     fail();
@@ -193,7 +193,7 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("shareFolder()", function () {
+    describe("_shareSystemFolder()", function () {
         beforeEach(function () {
             initDashboardObject();
             dashboard.folderId = "FOLDERID";
@@ -201,11 +201,11 @@ describe("Dashboard", function() {
 
         it("should fail if the system folder id isnt known", function () {
             dashboard.folderId = null;
-            expect(dashboard.findScenario).toThrow();
+            expect(dashboard._findUserDashboardScenario).toThrow();
         });
 
         it("should return an id if it successfully shares a folder", function () {
-            var promise = dashboard.shareFolder()
+            var promise = dashboard._shareSystemFolder()
                 .then((id) => {
                     expect(id).toEqual(dashboard.folderId);
                 });
@@ -219,7 +219,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if it fails to share the folder", function () {
-            var promise = dashboard.shareFolder()
+            var promise = dashboard._shareSystemFolder()
                 .then((id) => {
                     // should not succeed!
                     fail();
@@ -237,23 +237,23 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("findScenario()", function () {
+    describe("_findUserDashboardScenario()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should fail if the system folder id isnt known", function () {
             dashboard.folderId = null;
-            expect(dashboard.findScenario).toThrow();
+            expect(dashboard._findUserDashboardScenario).toThrow();
         });
 
         it("should fail if the user id isnt knownn", function () {
             dashboard.userId = null;
-            expect(dashboard.findScenario).toThrow();
+            expect(dashboard._findUserDashboardScenario).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario exists", function () {
-            var promise = dashboard.findScenario()
+            var promise = dashboard._findUserDashboardScenario()
                 .then((found) => {
                     expect(found).toEqual('SCENARIOID');
                 });
@@ -265,7 +265,7 @@ describe("Dashboard", function() {
         });
 
         it("should resolve to false if the system folder does not exist", function () {
-            var promise = dashboard.findScenario()
+            var promise = dashboard._findUserDashboardScenario()
                 .then((found) => {
                     expect(found).toBe(false);
                 });
@@ -277,7 +277,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if the call to the server doesnt return 200", function () {
-            var promise = dashboard.findScenario()
+            var promise = dashboard._findUserDashboardScenario()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -293,18 +293,18 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("isScenarioLoaded()", function () {
+    describe("_isUserDashboardScenarioLoaded()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should fail if the dashboard scenario id isnt known", function () {
             dashboard.scenarioId = null;
-            expect(dashboard.isScenarioLoaded).toThrow();
+            expect(dashboard._isUserDashboardScenarioLoaded).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario is loaded", function () {
-            var promise = dashboard.isScenarioLoaded()
+            var promise = dashboard._isUserDashboardScenarioLoaded()
                 .then((loaded) => {
                     expect(loaded).toBe(true);
                 });
@@ -316,7 +316,7 @@ describe("Dashboard", function() {
         });
 
         it("should resolve to false if the dashboard scenario is not loaded", function () {
-            var promise = dashboard.isScenarioLoaded()
+            var promise = dashboard._isUserDashboardScenarioLoaded()
                 .then((loaded) => {
                     expect(loaded).toBe(false);
                 });
@@ -328,7 +328,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if the call to the server doesnt return 200", function () {
-            var promise = dashboard.isScenarioLoaded()
+            var promise = dashboard._isUserDashboardScenarioLoaded()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -344,18 +344,18 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("loadScenario()", function () {
+    describe("_loadUserDashboardScenario()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should fail if the dashboard scenario id isnt known", function () {
             dashboard.scenarioId = null;
-            expect(dashboard.loadScenario).toThrow();
+            expect(dashboard._loadUserDashboardScenario).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario is successfully submitted for execution", function () {
-            var promise = dashboard.loadScenario()
+            var promise = dashboard._loadUserDashboardScenario()
                 .then((success) => {
                     expect(success).toEqual(true);
                 });
@@ -369,7 +369,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if the dashboard scenario is not successfully submitted for execution", function () {
-            var promise = dashboard.loadScenario()
+            var promise = dashboard._loadUserDashboardScenario()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -387,18 +387,18 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("isExecuting()", function () {
+    describe("_isUserDashboardScenarioExecuting()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should fail if the dashboard scenario id isnt known", function () {
             dashboard.scenarioId = null;
-            expect(dashboard.isExecuting).toThrow();
+            expect(dashboard._isUserDashboardScenarioExecuting).toThrow();
         });
 
         it("should resolve to true if the dashboard scenario is executing", function () {
-            var promise = dashboard.isExecuting()
+            var promise = dashboard._isUserDashboardScenarioExecuting()
                 .then((executing) => {
                     expect(executing).toEqual(true);
                 });
@@ -410,7 +410,7 @@ describe("Dashboard", function() {
         });
 
         it("should resolve to false if the dashboard scenario is not executing", function () {
-            var promise = dashboard.isExecuting()
+            var promise = dashboard._isUserDashboardScenarioExecuting()
                 .then((executing) => {
                     expect(executing).toEqual(false);
                 });
@@ -422,7 +422,7 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("doOverlay()", function () {
+    describe("_doOverlay()", function () {
         beforeEach(function () {
             initDashboardObject();
             spyOn($.fn, "trigger");
@@ -431,24 +431,24 @@ describe("Dashboard", function() {
         });
 
         it("should show the overlay when asked to show the overlay", function () {
-            dashboard.showOverlay(true);
+            dashboard._showOverlay(true);
             expect($.fn.trigger).toHaveBeenCalledWith("dashboard.overlay.show");
         });
 
         it("should show the overlay when asked to hide the overlay", function () {
-            dashboard.showOverlay(false);
+            dashboard._showOverlay(false);
             expect($.fn.trigger).toHaveBeenCalledWith("dashboard.overlay.hide");
         });
     });
 
-    describe("dependencyModified()", function () {
+    describe("_dependencyModified()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should resolve to true if the server says something has changed since timestamp", function () {
             var timestamp = 1234;
-            var promise = dashboard.dependencyModified(timestamp)
+            var promise = dashboard._dependencyModified(timestamp)
                 .then((modified) => {
                     expect(modified).toEqual(true);
                 });
@@ -465,7 +465,7 @@ describe("Dashboard", function() {
 
         it("should resolve to false if the server says nothing has changed since timestamp", function () {
             var timestamp = 1234;
-            var promise = dashboard.dependencyModified(timestamp)
+            var promise = dashboard._dependencyModified(timestamp)
                 .then((modified) => {
                     expect(modified).toEqual(false);
                 });
@@ -482,7 +482,7 @@ describe("Dashboard", function() {
 
         it("should throw an error if the server does not return 200", function () {
             var timestamp = 1234;
-            var promise = dashboard.dependencyModified(timestamp)
+            var promise = dashboard._dependencyModified(timestamp)
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -502,18 +502,18 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("getLastExecutionDate()", function () {
+    describe("_getLastExecutionDate()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should throw an error if the dashboard scenario id isnt known", function () {
             dashboard.scenarioId = null;
-            expect(dashboard.getLastExecutionDate).toThrow();
+            expect(dashboard._getLastExecutionDate).toThrow();
         });
 
         it("should return the last execution timestamp", function () {
-            var promise = dashboard.getLastExecutionDate()
+            var promise = dashboard._getLastExecutionDate()
                 .then((timestamp) => {
                     expect(timestamp).toEqual(123456789);
                 });
@@ -525,7 +525,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if the server does not return 200", function () {
-            var promise = dashboard.getLastExecutionDate()
+            var promise = dashboard._getLastExecutionDate()
                 .then((success) => {
                     // should not succeed!
                     fail();
@@ -541,13 +541,13 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("createFolder()", function () {
+    describe("_createSystemFolder()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should return an id if it successfully creates a folder", function () {
-            var promise = dashboard.createFolder()
+            var promise = dashboard._createSystemFolder()
                 .then((id) => {
                     expect(id).toEqual('FOLDERID');
                 });
@@ -557,7 +557,7 @@ describe("Dashboard", function() {
             expect(request.method).toBe('POST');
             expect(JSON.parse(request.params).displayName).toBe("_system");
             expect(JSON.parse(request.params).parent.id).toBe("APPID");
-            var response = testResponses.createFolder.success;
+            var response = testResponses._createFolder.success;
             response.responseText = JSON.stringify({
                 id: "FOLDERID",
                 displayName: "_system"
@@ -567,7 +567,7 @@ describe("Dashboard", function() {
         });
 
         it("should throw an error if it fails to create a folder", function () {
-            var promise = dashboard.createFolder()
+            var promise = dashboard._createSystemFolder()
                 .then((id) => {
                     // should not success!
                     fail();
@@ -587,95 +587,95 @@ describe("Dashboard", function() {
         });
     });
 
-    describe("findOrCreateFolder()", function () {
+    describe("_findOrCreateSystemFolder()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should return an id if the folder already exists", function (done) {
-            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            dashboard.findOrCreateFolder()
+            spyOn(dashboard, "_findSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_createSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_shareSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            dashboard._findOrCreateSystemFolder()
                 .then((id) => {
                     expect(id).toBe("FOLDERID");
-                    expect(dashboard.findFolder).toHaveBeenCalled();
-                    expect(dashboard.createFolder).not.toHaveBeenCalled();
+                    expect(dashboard._findSystemFolder).toHaveBeenCalled();
+                    expect(dashboard._createSystemFolder).not.toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return an id if the folder doesnt exist", function (done) {
-            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            dashboard.findOrCreateFolder()
+            spyOn(dashboard, "_findSystemFolder").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_createSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_shareSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            dashboard._findOrCreateSystemFolder()
                 .then((id) => {
                     expect(id).toBe("FOLDERID");
-                    expect(dashboard.findFolder).toHaveBeenCalled();
-                    expect(dashboard.createFolder).toHaveBeenCalled();
+                    expect(dashboard._findSystemFolder).toHaveBeenCalled();
+                    expect(dashboard._createSystemFolder).toHaveBeenCalled();
                     done();
                 });
         })
     });
 
-    describe("findOrCreateScenario()", function () {
+    describe("_findOrCreateUserDashboardScenario()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should return an id if the scenario already exists", function (done) {
-            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            dashboard.findOrCreateScenario()
+            spyOn(dashboard, "_findUserDashboardScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "_createUserDashboardScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            dashboard._findOrCreateUserDashboardScenario()
                 .then((id) => {
                     expect(id).toBe("SCENARIOID");
-                    expect(dashboard.findScenario).toHaveBeenCalled();
-                    expect(dashboard.createScenario).not.toHaveBeenCalled();
+                    expect(dashboard._findUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._createUserDashboardScenario).not.toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return an id if the scenario doesnt exist", function (done) {
-            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            dashboard.findOrCreateScenario()
+            spyOn(dashboard, "_findUserDashboardScenario").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_createUserDashboardScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            dashboard._findOrCreateUserDashboardScenario()
                 .then((id) => {
                     expect(id).toBe("SCENARIOID");
-                    expect(dashboard.findScenario).toHaveBeenCalled();
-                    expect(dashboard.createScenario).toHaveBeenCalled();
+                    expect(dashboard._findUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._createUserDashboardScenario).toHaveBeenCalled();
                     done();
                 });
         })
     });
 
-    describe("ensureScenarioLoaded()", function () {
+    describe("_ensureUserDashboardScenarioLoaded()", function () {
         beforeEach(function () {
             initDashboardObject();
         });
 
         it("should do nothing if the scenario is already loaded", function (done) {
-            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(true));
-            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(dashboard, "doOverlay").and.returnValue(Promise.resolve(true));
-            dashboard.ensureScenarioLoaded()
+            spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "_doOverlay").and.returnValue(Promise.resolve(true));
+            dashboard._ensureUserDashboardScenarioLoaded()
                 .then(() => {
-                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(dashboard.loadScenario).not.toHaveBeenCalled();
-                    expect(dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard._isUserDashboardScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard._loadUserDashboardScenario).not.toHaveBeenCalled();
+                    expect(dashboard._doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should load the scenario and force the overlay if the scenario is not already loaded", function (done) {
-            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(dashboard, "doOverlay").and.returnValue(Promise.resolve(true));
-            dashboard.ensureScenarioLoaded()
+            spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "_doOverlay").and.returnValue(Promise.resolve(true));
+            dashboard._ensureUserDashboardScenarioLoaded()
                 .then(() => {
-                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(dashboard.loadScenario).toHaveBeenCalled();
-                    expect(dashboard.doOverlay).toHaveBeenCalledWith(true);
+                    expect(dashboard._isUserDashboardScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard._loadUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._doOverlay).toHaveBeenCalledWith(true);
                     done();
                 });
         });
@@ -716,76 +716,76 @@ describe("Dashboard", function() {
         });
 
         it("should return the scenario id given the system folder and dashboard scenario already exist", function (done) {
-            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(true));
-            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(dashboard, "doOverlay").and.returnValue(true);
+            spyOn(dashboard, "_findSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_createSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_shareSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_findUserDashboardScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "_createUserDashboardScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "_doOverlay").and.returnValue(true);
 
             dashboard.start()
                 .then((ids) => {
                     expect(ids[0]).toBe('SCENARIOID');
-                    expect(dashboard.findFolder).toHaveBeenCalled();
-                    expect(dashboard.createFolder).not.toHaveBeenCalled();
-                    expect(dashboard.shareFolder).not.toHaveBeenCalled();
-                    expect(dashboard.findScenario).toHaveBeenCalled();
-                    expect(dashboard.createScenario).not.toHaveBeenCalled();
-                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(dashboard.loadScenario).not.toHaveBeenCalled();
-                    expect(dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard._findSystemFolder).toHaveBeenCalled();
+                    expect(dashboard._createSystemFolder).not.toHaveBeenCalled();
+                    expect(dashboard._shareSystemFolder).not.toHaveBeenCalled();
+                    expect(dashboard._findUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._createUserDashboardScenario).not.toHaveBeenCalled();
+                    expect(dashboard._isUserDashboardScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard._loadUserDashboardScenario).not.toHaveBeenCalled();
+                    expect(dashboard._doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return the scenario id given the system folder exists and the dashboard scenario doesnt", function (done) {
-            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "shareFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(dashboard, "doOverlay").and.returnValue(true);
+            spyOn(dashboard, "_findSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_createSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_shareSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_findUserDashboardScenario").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_createUserDashboardScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "_doOverlay").and.returnValue(true);
 
             dashboard.start()
                 .then((ids) => {
                     expect(ids[0]).toBe('SCENARIOID');
-                    expect(dashboard.findFolder).toHaveBeenCalled();
-                    expect(dashboard.createFolder).not.toHaveBeenCalled();
-                    expect(dashboard.shareFolder).not.toHaveBeenCalled();
-                    expect(dashboard.findScenario).toHaveBeenCalled();
-                    expect(dashboard.createScenario).toHaveBeenCalled();
-                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(dashboard.loadScenario).toHaveBeenCalled();
-                    expect(dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard._findSystemFolder).toHaveBeenCalled();
+                    expect(dashboard._createSystemFolder).not.toHaveBeenCalled();
+                    expect(dashboard._shareSystemFolder).not.toHaveBeenCalled();
+                    expect(dashboard._findUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._createUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._isUserDashboardScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard._loadUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
 
         it("should return the scenario id given neither the system folder nor dashboard scenario exist", function (done) {
-            spyOn(dashboard, "findFolder").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "createFolder").and.returnValue(Promise.resolve("FOLDERID"));
-            spyOn(dashboard, "shareFolder").and.returnValue("FOLDERID");
-            spyOn(dashboard, "findScenario").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "createScenario").and.returnValue(Promise.resolve("SCENARIOID"));
-            spyOn(dashboard, "isScenarioLoaded").and.returnValue(Promise.resolve(false));
-            spyOn(dashboard, "loadScenario").and.returnValue(Promise.resolve(true));
-            spyOn(dashboard, "doOverlay").and.returnValue(true);
+            spyOn(dashboard, "_findSystemFolder").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_createSystemFolder").and.returnValue(Promise.resolve("FOLDERID"));
+            spyOn(dashboard, "_shareSystemFolder").and.returnValue("FOLDERID");
+            spyOn(dashboard, "_findUserDashboardScenario").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_createUserDashboardScenario").and.returnValue(Promise.resolve("SCENARIOID"));
+            spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(false));
+            spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve(true));
+            spyOn(dashboard, "_doOverlay").and.returnValue(true);
 
             dashboard.start()
                 .then((ids) => {
                     expect(ids[0]).toBe('SCENARIOID');
-                    expect(dashboard.findFolder).toHaveBeenCalled();
-                    expect(dashboard.createFolder).toHaveBeenCalled();
-                    expect(dashboard.shareFolder).toHaveBeenCalled();
-                    expect(dashboard.findScenario).toHaveBeenCalled();
-                    expect(dashboard.createScenario).toHaveBeenCalled();
-                    expect(dashboard.isScenarioLoaded).toHaveBeenCalled();
-                    expect(dashboard.loadScenario).toHaveBeenCalled();
-                    expect(dashboard.doOverlay).toHaveBeenCalled();
+                    expect(dashboard._findSystemFolder).toHaveBeenCalled();
+                    expect(dashboard._createSystemFolder).toHaveBeenCalled();
+                    expect(dashboard._shareSystemFolder).toHaveBeenCalled();
+                    expect(dashboard._findUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._createUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._isUserDashboardScenarioLoaded).toHaveBeenCalled();
+                    expect(dashboard._loadUserDashboardScenario).toHaveBeenCalled();
+                    expect(dashboard._doOverlay).toHaveBeenCalled();
                     done();
                 });
         });
