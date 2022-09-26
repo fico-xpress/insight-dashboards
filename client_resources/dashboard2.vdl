@@ -14,7 +14,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 -->
-<vdl version="4.7">
+<vdl version="4.8">
 	<script src="js/dashboardframework.js" type="text/javascript"></script>
 	<script src="js/dashboard2.js" type="text/javascript"></script>
 	<link href="css/dashboardframework.css" rel="stylesheet" type="text/css">

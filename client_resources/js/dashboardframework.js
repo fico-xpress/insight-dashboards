@@ -41,18 +41,24 @@ Dashboard.prototype = {
     start: function () {
         var self = this;
 
-        // get the API base
-        // use the resolution method if available, to be path based routing comptabile
-        if (typeof insight.resolveRestEndpoint === "function")
-            self.apiBase = insight.resolveRestEndpoint('/insightservices/rest/v1/');
+        // auto detect the insight version number
+        if (typeof insight.getVersion == 'undefined' || insight.getVersion() === 4)
+            self.api = new InsightRESTAPIv1();
         else
-        // if the method doesnt exist, cant be using PBR so safe to assume default base
-            self.apiBase = '/insightservices/rest/v1/';
+            self.api = new InsightRESTAPI();
 
         // get the user
         return insight.getView().getUser()
             .then(function (user) {
-                self.userId = user.getUsername();
+                
+                // Insight 5 doesnt expose the username of the current user
+                if (self.api.getVersion() === 1)
+                    self.userId = user.getUsername();
+                else
+                    // VDL 4.8 doesnt support user.getId so until this moved to VDL 5.0 only, use the full username.
+                    // TODO change this to fetch the id by rest call
+                    self.userId = user.getFullName().toLowerCase();
+                    
                 return self.userId;
             })
             .then(self._findOrCreateSystemFolder.bind(this))
@@ -126,55 +132,34 @@ Dashboard.prototype = {
     _findSystemFolder: function () {
         var self = this;
 
-        return $.ajax({
-            url: self.apiBase + 'data/project/' + self.appId + '/folder',
-            type: 'GET',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8'
-        })
-            .then(
-                function (response) {
+        return self.api.getRootFolders(self.appId)
+            .then(folders => {
                     var found = false;
-                    $.each(response.items, function (i, v) {
-                        if (self.config.systemFolder == v.displayName) {
+                    $.each(folders, function (i, v) {
+                        if (self.config.systemFolder === v.name) {
                             found = v.id;
                         }
                     });
                     return found;
-                },
-                function (failed) {
-                    throw new Error("Failed to check for folder " + self.config.systemFolder + " existance with " + failed);
+                })
+            .catch(err => {
+                    throw new Error("Failed to check for folder " + self.config.systemFolder + " existance with " + err);
                 }
             );
     },
     _createSystemFolder: function () {
         var self = this;
 
-        var payload = {
-            displayName: self.config.systemFolder,
-            parent: {
-                objectType: "PROJECT",
-                id: self.appId
-            }
-        };
-
-        return $.ajax({
-            url: self.apiBase + 'data/folder/',
-            type: 'POST',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(payload)
-        })
-            .then(
-                function (success) {
-                    if (success.displayName != self.config.systemFolder)
+        return self.api.createRootFolder(insight.getView().getApp(), self.config.systemFolder)
+            .then(folder => {
+                    if (folder.name !== self.config.systemFolder)
                         throw new Error("Permissions issue. Folder " + self.config.systemFolder + " exists but is not accessible");
-                    return success.id;
-                },
-                function (failed) {
-                    throw new Error("Failed to create folder " + self.config.systemFolder + " with " + failed);
+                    return folder.id;
                 }
-            );
+            )
+            .catch(err => {
+                    throw new Error("Failed to create folder " + self.config.systemFolder + " with " + err);
+            });
     },
     _findOrCreateSystemFolder: function() {
         var self=this;
@@ -205,26 +190,11 @@ Dashboard.prototype = {
         if (!self.folderId)
             throw new Error("Dashboard not initialized, missing folder id");
 
-        var payload = {
-            id: self.folderId,
-            shareStatus: "FULLACCESS"
-        };
-
-        return $.ajax({
-            url: self.apiBase + 'data/folder/' + self.folderId + "?cascadeShareStatus=false&cascadeOwner=false",
-            type: 'POST',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(payload)
-        })
-            .then(
-                function (success) {
-                    return success.id;
-                },
-                function (failed) {
-                    throw new Error("Failed to set dashboard folder to fully shared with " + failed);
-                }
-            );
+        return self.api.shareFolder(self.folderId, "FULLACCESS")
+            .then(success => success.id)
+            .catch(err => {
+                throw new Error("Failed to set dashboard folder to fully shared with " + err);
+            });
     },
     _findUserDashboardScenario: function () {
         var self = this;
@@ -236,58 +206,34 @@ Dashboard.prototype = {
 
         var scenarioName = self.config.viewId + "." + self.userId;
 
-        return $.ajax({
-            url: self.apiBase + 'data/folder/' + self.folderId + '/children',
-            type: 'GET',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8'
-        })
-            .then(
-                function (response) {
+        return self.api.getChildren(self.folderId)
+            .then(children => {
                     var found = false;
-                    $.each(response.items, function (i, v) {
-                        if (scenarioName == v.displayName)
+                    $.each(children, function (i, v) {
+                        if (scenarioName === v.name)
                             found = v.id;
                     });
                     return found;
-                },
-                function (failed) {
-                    throw new Error("Failed to check for scenario " + scenarioName + " existance with " + failed);
-                }
-            );
+                })
+            .catch(err => {
+                    throw new Error("Failed to check for scenario " + scenarioName + " existance with " + err);
+            });
     },
     _createUserDashboardScenario: function () {
         var self = this;
 
         var scenarioName = self.config.viewId + "." + self.userId;
 
-        var payload = {
-            displayName: scenarioName,
-            parent: {
-                objectType: "FOLDER",
-                id: self.folderId
-            }
-        };
 
-        return $.ajax({
-            url: self.apiBase + 'data/scenario/',
-            type: 'POST',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(payload)
-        })
-            .then(
-                function (success) {
-                    return success.id;
-                },
-                function (failed) {
-                    throw new Error("Failed to create scenario " + scenarioName + " with " + failed);
-                }
-            );
+        return self.api.createScenario(insight.getView().getApp(), self.folderId, scenarioName, self.config.scenarioType)
+            .then(scenario => scenario.id)
+            .catch(err => {
+                    throw new Error("Failed to create scenario " + scenarioName + " with " + err);
+                });
     },
     _findOrCreateUserDashboardScenario: function(){
         var self=this;
-
+debugger;
         return self._findUserDashboardScenario()
             .then(function (found) {
                 // found the scenario
@@ -310,20 +256,11 @@ Dashboard.prototype = {
         if (!self.scenarioId)
             throw new Error("Dashboard not initialized, missing scenario id");
 
-        return $.ajax({
-            url: self.apiBase + 'data/scenario/' + self.scenarioId,
-            type: 'GET',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8'
-        })
-            .then(
-                function (scenario) {
-                    return scenario.loaded;
-                },
-                function (failed) {
-                    throw new Error("Failed to check scenario " + self.scenarioId + " is loaded with " + failed);
-                }
-            );
+        return self.api.getScenario(self.scenarioId)
+            .then(scenario => scenario.loaded)
+            .catch(err => {
+                    throw new Error("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
+                });
     },
     _loadUserDashboardScenario: function () {
         var self = this;
@@ -331,28 +268,11 @@ Dashboard.prototype = {
         if (!self.scenarioId)
             throw new Error("Dashboard not initialized, missing scenario id");
 
-        var payload = {
-            id: self.scenarioId,
-            objectType: "EXECUTION_REQUEST",
-            jobType: self.config.executionMode
-        };
-
-        return $.ajax({
-            url: self.apiBase + 'data/execution',
-            type: 'POST',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(payload)
-        })
-            .then(
-                function (success) {
-                    return true;
-                },
-                function (failed) {
-                    console.log(failed);
-                    throw new Error("Failed to load scenario " + self.scenarioId + " with " + failed.message);
-                }
-            );
+        return self.api.executeScenario(self.scenarioId, self.config.executionMode)
+            .then(() => { return true;})
+            .catch(err => {
+                throw new Error("Failed to load scenario " + self.scenarioId + " with " + err);
+            });
     },
     _isUserDashboardScenarioExecuting: function () {
         var self = this;
@@ -360,20 +280,14 @@ Dashboard.prototype = {
         if (!self.scenarioId)
             throw new Error("Dashboard not initialized, missing scenario id");
 
-        return $.ajax({
-            url: self.apiBase + 'data/scenario/' + self.scenarioId + '/job',
-            type: 'GET',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8'
-        })
-            .then(
-                function () { // success
-                    return true;
-                },
-                function () { // failure
-                    return false;
-                }
-            );
+        // Insight 4, queued/executing <= existence of job
+        if (self.api.getVersion() === 1)
+            return self.api.getJob(self.scenarioId)
+                .then(success => { return true; }, failure => { return false; });
+        // Insight 5, queued/executing <= reserved for job flag on scenario
+        else
+            return self.api.getScenario(self.scenarioId)
+                .then(scenario => scenario.summary.reservedForJob);
     },
     _ensureUserDashboardScenarioLoaded: function() {
         var self=this;
@@ -409,7 +323,7 @@ Dashboard.prototype = {
     _doOverlay: function (force) {
         var self = this;
         
-        if (force != undefined) {
+        if (force !== undefined) {
             if (force)
                 self._showOverlay(true);
             else
@@ -433,22 +347,9 @@ Dashboard.prototype = {
     },
     _dependencyModified: function (t) {
         var self = this;
-        var payload = {
-            timestamp: t,
-            path: self.config.dependencyPath,
-            exclusions: ["/" + self.config.systemFolder].concat(self.config.dependencyExclusions)
-        };
+        var exclusions  = ["/" + self.config.systemFolder].concat(self.config.dependencyExclusions);
 
-        return $.ajax({
-            url: self.apiBase + 'data/project/' + self.appId + '/dashboard/status',
-            type: 'POST',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(payload)
-        })
-            .then(function (response) {
-                return response.dataModifiedSinceTimestamp;
-            });
+        return self.api.getDashboardStatus(self.appId, t, self.config.dependencyPath, exclusions);
     },
     _getLastExecutionDate: function () {
         // needs to be a rest call as scenario selection not yet active
@@ -457,18 +358,11 @@ Dashboard.prototype = {
         if (!self.scenarioId)
             throw new Error("Dashboard not initialized, missing scenario id");
 
-        var payload = {}; // summary data only, no entities
-
-        return $.ajax({
-            url: self.apiBase + 'data/scenario/' + self.scenarioId + '/data',
-            type: 'POST',
-            dataType: 'json',
-            contentType: 'application/json; charset=utf-8',
-            data: JSON.stringify(payload)
-        })
-            .then(function (response) {
-                return response.summary.lastExecutionDate;
-            });
+       return self.api.getScenarioSummaryData(self.scenarioId)
+            .then(summary => summary.lastExecutionDate)
+           .catch(err => {
+               throw new Error("Failed to get scenario summnary data " + self.scenarioId + " with " + err);
+           });
     },
     _doDependencyChecking: function () {
         var self = this;
@@ -504,6 +398,7 @@ function Dashboard(userconfig) {
         config: {
             viewId: null, // name of the dashboard view
             systemFolder: "_system", // location for the dashboard scenarios
+            scenarioType: "SCENARIO", // optional custom type for the dashboard scenario
             executionMode: "LOAD", // custom load mode for running the dashboard scenairo
             executionPollingInterval: 1, // seconds between polls to see if the dashboard scenario has finished executing
             dependencyCheck: false, // should the dependency check be run automatically
@@ -548,7 +443,7 @@ function Dashboard(userconfig) {
         isContainer: false,
         attributes: [],
         template: '<div data-bind="visible: $component.showLoadingOverlay" class="dashboard-loading-overlay"> ' +
-            '    <img class="dashboard-loading-img" src="" width="109" height="109"/>                    ' +
+            '    <img class="dashboard-loading-img" alt="Loading.." src="" width="109" height="109"/>                    ' +
             '        <span class="dashboard-loading-text">Generating dashboard.. please wait.</span>     ' +
             '    </div>',
         createViewModel: function () {
@@ -573,4 +468,343 @@ function Dashboard(userconfig) {
     });
     
     return self;
-};
+}
+
+// REST API interface for v1 of the REST API (Insight 4)
+function InsightRESTAPIv1() {
+    var self = this;
+    self.version = 1;
+    return this;
+}
+InsightRESTAPIv1.prototype = {
+    BASE_REST_ENDPOINT: '/data/',
+    contentNegotiation: 'application/json',
+
+    getVersion: function() {
+        var self = this;
+        return self.version;
+    },
+    restRequest: function(path, type, data) {
+        var self = this;
+        var request = {
+            url: insight.resolveRestEndpoint(self.BASE_REST_ENDPOINT + path),
+            type: type,
+            data: data,
+            headers: {
+                'Accept': self.contentNegotiation,
+                'Content-Type': self.contentNegotiation + ';charset=UTF-8'
+            }
+        };
+
+        return new Promise(function(resolve, reject) {
+            var jqXHR = $.ajax(request);
+
+            jqXHR.done(function(data, textStatus, jqXHR) {
+                resolve(data);
+            });
+
+            jqXHR.fail(function(data, textStatus, jqXHR) {
+                reject(textStatus);
+            });
+        });
+    },
+    getRootFolders: function(appId) {
+        var self = this;
+        return self.restRequest('project/' + appId + '/children?maxResults=9999', 'GET')
+            .then(function(data) {
+                var projects = [];
+                var children = data.items;
+
+                // filter out scenarios, projects are root folders
+                for (var i = 0; i < children.length; i++) {
+                    var child = children[i];
+                    if (child.objectType === 'FOLDER')
+                        projects.push(child);
+                };
+
+                // standardize on name
+                for (var i = 0; i < projects.length; i++) {
+                    projects[i].name = projects[i].displayName;
+                    delete projects[i].displayName;
+                }
+
+
+                // sort case insensitive
+                projects.sort(function(a, b) {
+                    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+                });
+
+                return projects;
+            });
+    },
+    getChildren: function(folderId) {
+        var self = this;
+        return self.restRequest('folder/' + folderId + '/children?maxResults=9999', 'GET')
+            .then(function(data) {
+                var children = data.items;
+
+                // standarize naming property
+                for (var i = 0; i < children.length; i++) {
+                    children[i].name = children[i].displayName;
+                    delete children[i].displayName;
+                }
+                return children;
+            });
+    },
+    createScenario: function(app, parentId, name, type) {
+        var self = this;
+
+        var parent = {
+            objectType: "FOLDER",
+                id: parentId
+        };
+
+        return app.createScenario(parent, name, type)
+            .then(function(scenario) {
+                // standarize name property
+                scenario.name = scenario.displayName;
+                delete scenario.displayName;
+                return scenario;
+            });
+    },
+    createRootFolder: function(app, name) {
+        var self = this;
+
+        // no parent specified == root folder
+        return app.createFolder(name)
+            .then(function(folder) {
+                // standarize name property
+                folder.name = folder.displayName;
+                delete folder.displayName;
+                return folder;
+            });
+    },
+    shareFolder: function(id, shareStatus) {
+        var self = this;
+
+        if (shareStatus != "PRIVATE" && shareStatus != "READONLY" && shareStatus != "FULLACCESS")
+            return Promise.reject("Invalid share status");
+
+        var payload = {
+            id: id,
+            shareStatus: shareStatus
+        };
+        return self.restRequest('folder/' + id, 'POST', JSON.stringify(payload));
+    },
+    getScenario: function(id) {
+      var self = this;
+      return self.restRequest('scenario/' + id, 'GET')
+          .then(scenario => {
+              scenario.name = scenario.displayName;
+              delete scenario.displayName;
+              return scenario;
+          });
+    },
+    getScenarioSummaryData: function(id) {
+        var self=this;
+
+        var payload = {}; // summary data only, no entities
+        return self.restRequest('scenario/' + id + '/data', 'POST', JSON.stringify(payload))
+        .then(response => response.summary);
+    },
+    executeScenario: function(id, mode) {
+        var self=this;
+
+        var payload = {
+            id: id,
+            objectType: "EXECUTION_REQUEST",
+            jobType: mode
+        };
+
+        return self.restRequest('execution', 'POST', JSON.stringify(payload));
+    },
+    getJob: function(scenarioId) {
+        var self=this;
+
+        return self.restRequest('scenario/' + scenarioId + '/job', 'GET')
+            .then(response => response.summary);
+    },
+    getDashboardStatus: function(appId, timestamp, path, exclusions) {
+        var self=this;
+
+        var payload = {
+            timestamp: timestamp,
+            path: path,
+            exclusions: exclusions
+        };
+
+        return self.restRequest('project/' + appId + '/dashboard/status', 'POST', JSON.stringify(payload))
+            .then(response => response.dataModifiedSinceTimestamp);
+    }
+}
+
+// REST API interface for v2 of the REST API (Insight 5)
+function InsightRESTAPI() {
+    var self = this;
+    self.version = 2;
+    return this;
+}
+InsightRESTAPI.prototype = {
+    BASE_REST_ENDPOINT: '/api/',
+    contentNegotiation: 'application/vnd.com.fico.xpress.insight.v2+json',
+    uploadPollingInterval: 1000,
+
+    getVersion: function() {
+        var self = this;
+        return self.version;
+    },
+    restRequest: function(path, type, data) {
+        var self = this;
+        var request = {
+            url: insight.resolveRestEndpoint(self.BASE_REST_ENDPOINT + path),
+            type: type,
+            data: data,
+            headers: {
+                'Accept': self.contentNegotiation,
+                'Content-Type': self.contentNegotiation + ';charset=UTF-8'
+            }
+        };
+
+        return new Promise(function(resolve, reject) {
+            var jqXHR = $.ajax(request);
+
+            jqXHR.done(function(response) {
+                if (response)
+                    resolve(response);
+                else
+                    resolve();
+            });
+
+            jqXHR.fail(function(jqXHR) {
+                var code;
+                var message;
+
+                // if there is a response body
+                if (jqXHR.responseJSON) {
+                    var response = jqXHR.responseJSON;
+
+                    // prefer the more detailed inner error
+                    if (response.error.innerError) {
+                        code = response.error.innerError.code;
+                        message = response.error.innerError.message;
+                    } else {
+                        code = response.error.code;
+                        message = response.error.message;
+                    }
+                } else {
+                    // theres no response body for this error so take the raw XHR object fields
+                    code = jqXHR.status;
+                    message = jqXHR.statusText;
+                }
+                reject(message);
+            });
+        });
+    },
+    getRootFolders: function(appId) {
+        var self = this;
+        return self.restRequest('apps/' + appId + '/children?page=0&size=9999', 'GET')
+            .then(function(children) {
+                var projects = [];
+                children = children.content; // strip away the container
+
+                // filter out scenarios, projects are root folders
+                for (var i = 0; i < children.length; i++) {
+                    var child = children[i];
+                    // mask out those starting with underscore
+                    if (child.objectType === 'FOLDER')
+                        projects.push(child);
+                };
+
+                // sort case insensitive
+                projects.sort(function(a, b) {
+                    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+                });
+
+                return projects;
+            });
+    },
+    getChildren: function(folderId) {
+        var self = this;
+        return self.restRequest('folders/' + folderId + '/children?page=0&size=9999', 'GET')
+            .then(function(children) {
+                return children.content; // strip away the container
+            });
+    },
+    createScenario: function(app, parentId, name, type) {
+        var self = this;
+
+        var parent = {
+            objectType: "FOLDER",
+            id: parentId
+        };
+
+        return app.createScenario(parent, name, type)
+            .then(function(scenario) {
+                // standarize name property
+                scenario.name = scenario.displayName;
+                delete scenario.displayName;
+                return scenario;
+            });
+    },
+    createRootFolder: function(app, name) {
+        var self = this;
+
+        return app.createFolder(name)
+            .then(function(folder) {
+                // standarize name property
+                folder.name = folder.displayName;
+                delete folder.displayName;
+                return folder;
+            });
+    },
+    shareFolder: function(id, shareStatus) {
+        var self = this;
+
+        if (shareStatus != "PRIVATE" && shareStatus != "READONLY" && shareStatus != "FULLACCESS")
+            return Promise.reject("Invalid share status");
+
+        var payload = {
+            id: id,
+            shareStatus: shareStatus
+        };
+        return self.restRequest('folders/' + id, 'PATCH', JSON.stringify(payload));
+    },
+    getScenario: function(id) {
+        var self=this;
+        return self.restRequest('scenarios/' + id, 'GET');
+    },
+    getScenarioSummaryData: function(id) {
+        var self=this;
+
+        var payload = {}; // summary data only, no entities
+        return self.restRequest('scenarios/' + id + '/data', 'POST', JSON.stringify(payload))
+            .then(response => response.summary);
+    },
+    executeScenario: function(id, mode) {
+        var self=this;
+
+        var payload = {
+            executionMode: mode,
+            scenario: {
+                id: id,
+                //objectType: "SCENARIO",
+                //name
+                //url
+            }
+        };
+
+        return self.restRequest('jobs', 'POST', JSON.stringify(payload));
+    },
+    getDashboardStatus: function(appId, timestamp, path, exclusions) {
+        var self=this;
+
+        var payload = {
+            timestamp: timestamp,
+            path: path,
+            exclusions: exclusions
+        };
+
+        return self.restRequest('project/' + appId + '/dashboard/status', 'POST', JSON.stringify(payload))
+            .then(response => response.dataModifiedSinceTimestamp);
+    }
+}

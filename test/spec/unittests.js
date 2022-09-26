@@ -65,7 +65,8 @@ describe("Dashboard", function() {
                     showErrorMessage () {}
                 }
             },
-            resolveRestEndpoint: jasmine.createSpy().and.callFake(_.identity)
+            resolveRestEndpoint: jasmine.createSpy().and.callFake(_.identity),
+            getVersion: function() { return 4;}
         };
 
 
