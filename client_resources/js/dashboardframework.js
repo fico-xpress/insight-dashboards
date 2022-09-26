@@ -48,19 +48,8 @@ Dashboard.prototype = {
             self.api = new InsightRESTAPI();
 
         // get the user
-        return insight.getView().getUser()
-            .then(function (user) {
-                
-                // Insight 5 doesnt expose the username of the current user
-                if (self.api.getVersion() === 1)
-                    self.userId = user.getUsername();
-                else
-                    // VDL 4.8 doesnt support user.getId so until this moved to VDL 5.0 only, use the full username.
-                    // TODO change this to fetch the id by rest call
-                    self.userId = user.getFullName().toLowerCase();
-                    
-                return self.userId;
-            })
+        return self.api.getCurrentUser()
+            .then(user => { self.userId = user.id;})
             .then(self._findOrCreateSystemFolder.bind(this))
             .then(self._findOrCreateUserDashboardScenario.bind(this))
             .then(self._ensureUserDashboardScenarioLoaded.bind(this))
@@ -89,7 +78,7 @@ Dashboard.prototype = {
                     }
                 })
                 .start();
-        })
+            })
             .then(function () {
                 return insight.getView().getScenarioProperties(0);
             })
@@ -233,7 +222,7 @@ Dashboard.prototype = {
     },
     _findOrCreateUserDashboardScenario: function(){
         var self=this;
-debugger;
+
         return self._findUserDashboardScenario()
             .then(function (found) {
                 // found the scenario
@@ -508,6 +497,10 @@ InsightRESTAPIv1.prototype = {
             });
         });
     },
+    getCurrentUser: function() {
+        return insight.getView().getUser()
+            .then(user => user._data)
+    },
     getRootFolders: function(appId) {
         var self = this;
         return self.restRequest('project/' + appId + '/children?maxResults=9999', 'GET')
@@ -699,6 +692,10 @@ InsightRESTAPI.prototype = {
                 reject(message);
             });
         });
+    },
+    getCurrentUser: function () {
+      var self=this;
+      return self.restRequest('authentication/current-user', 'GET');
     },
     getRootFolders: function(appId) {
         var self = this;
