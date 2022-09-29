@@ -8,8 +8,8 @@
 
     <client>
         <view-group title="Main">
-            <vdl-view title="Dashboard 1 - manual" path="dashboard1.vdl" empty-selection-default="true"/>
-            <vdl-view title="Dashboard 2 - auto" path="dashboard2.vdl" empty-selection-default="true" />
+            <vdl-view title="Dashboard 1 - manual" path="dashboard1.vdl" empty-selection-default="true" requires-scenarios-loaded="false" />
+            <vdl-view title="Dashboard 2 - auto" path="dashboard2.vdl" empty-selection-default="true" requires-scenarios-loaded="false" />
         </view-group>
     </client>
 

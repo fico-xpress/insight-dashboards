@@ -1,0 +1,103 @@
+# A set of manual system tests in pseudo-gherkin notation
+
+Background: 
+    Given the insight version is 5 unless otherwise stated
+    And the user is logged in as admin unless otherwise stated
+    And the user has uploaded a new instance of the provided "Dashboards" example
+        
+Feature: Static dashboard
+    Scenario: the dashboard shows stats on the scenarios owned by admin
+        Given the user is in the app
+        And the user is on the first dashboard view
+        When the user creates 3 additional scenarios
+        And the user adds all 4 scenarios to the shelf
+        And the user loads all of the scenariso
+        And the user runs all of the scenarios.
+        Then the dashboard shows total scenarios=4
+        And the score scalar chart has 4 bars
+        And the status swimlanes show 4 statuses
+        And the app attachment table is empty.
+    
+    Scenario: the system folder and user scenario are created as expected
+        Given the user has performed the previous tests
+        When the user opens the scenario manager
+        Then there is a root folder called _system
+        And the _system folder is owned by admin
+        And the _system folder is shared full access
+        When the user navigates into the _system folder
+        Then they see a scenario called "dashboard1.admin" owned by admin and private
+    
+    Scenario: the dashboarding is resilient to the system folder being deleted
+        Given the user has performed the previous tests
+        When the user opens the scenario manager
+        And deletes the folder called _system
+        And clicks on the refresh button
+        Then the dashboard with previous state is shown
+        When the user opens the scenario manager
+        And deletes the folder called _system
+        And navigates away from the first dashboard view
+        And navigates back to the first dashboard view
+        Then the dashboard with previous state is shown
+    
+    Scenario: the dashboard state is deterministic
+        Given the user has performed the previous tests
+        When the user clicks the refresh button
+        Then a spinner and message "Generating dashboard.. please wait" is shown
+        When a short time has passed
+        Then the spinner and message are removed
+        And the dashboard is visible
+        And the stats are unchanged
+    
+    Scenario: the dashboard updates to the latest state on refresh
+        Given the user has performed the previous tests
+        When the user creates, loads and runs a 5th scenario
+        And the user clicks the refresh button
+        Then the dashboard updates
+        And the dashboard shows stats for 5 scenarios
+    
+    Scenario: the dashboard updates to the latest state on navigation
+        Given the user has performed the previous tests
+        When the user creates, loads and runs a 6th scenario
+        And the user navigates away from the view
+        And the user navigates back to the view
+        Then the dashboard updates
+        And the dashboard shows stats for 6 scenarios
+    
+Feature: Dashboards are per user
+    Scenario: a second user does not see the same stats as the admin user
+        Given the user logs in with a different account called user2
+        And the user is on the first dashboard view
+        Then the user sees stats reflecting zero scenarios
+        When the user creates 2 scenarios
+        And the user adds the 2 scenarios to the shelf
+        And the user loads the 2 scenariso
+        And the user runs the 2 scenarios.
+        Then the dashboard shows total scenarios=2
+        When the user logs out
+        And the user logs in as the admin user
+        And the user goes to the first dashboard view
+        Then the dashboard stats show stats for 6 scenarios
+        
+    
+    Scenario: each user has their own dashboard scenario    
+        Given the second user has performed the previous tests
+        When the second user opens the scenario manager
+        When the second user navigates into the _system folder
+        Then they see a scenario called "dashboard1.user2" owned by user2 and private
+    
+Feature: automatic checking for when the dashboard is out of date
+    Scenario: a scenario is removed which invalidates the dashboard state
+        Given the user is logged in as admin
+        And the user is viewing the second dashboard view
+        And the user deletes one of the scenarios owned by admin
+        When at most a few seconds time has passed
+        Then a info message is displayed at the top of the dashboard
+        And the info message says the dashboard may be out of date
+    
+    Scenario: refreshing the dashboard makes it current again
+        Given the second user has performed the previous test
+        And the second dashboard is showing the info message
+        When the user clicks on refresh
+        And the dashboard is updated
+        Then the info message is removed
+    

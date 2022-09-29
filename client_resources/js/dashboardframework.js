@@ -1,7 +1,7 @@
 /*
     Insight custom dashboard framework
 
-    Framework for implementing Insight 4.x dashboard views
+    Framework for implementing Insight 4.x and 5.x dashboard views
 
     (c) Copyright 2019 Fair Isaac Corporation
     Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,17 +38,15 @@ Dashboard.prototype = {
     /*
     PUBLIC INTERFACE
     */
+    apiVersion: function() {
+        var self = this;
+        return self.api.getVersion();
+    },
     start: function () {
         var self = this;
 
-        // auto detect the insight version number
-        if (typeof insight.getVersion == 'undefined' || insight.getVersion() === 4)
-            self.api = new InsightRESTAPIv1();
-        else
-            self.api = new InsightRESTAPI();
-
         // get the user
-        return self.api.getCurrentUser()
+        return self._getCurrentUser()
             .then(user => { self.userId = user.id;})
             .then(self._findOrCreateSystemFolder.bind(this))
             .then(self._findOrCreateUserDashboardScenario.bind(this))
@@ -62,13 +60,14 @@ Dashboard.prototype = {
 
             // no dashboard scenario selected is our error state
             .catch(function (error) {
-                insight.getView().showErrorMessage(error);
+                self.view.showErrorMessage(error);
                 return []; // select no scenario
             });
     },
     refresh: function(execMode) {
-        return new Promise(function (resolve, reject) {
-            insight.getView().withScenarios(0)
+        var self=this;
+        /*return new Promise(function (resolve, reject) {
+            self.view.withScenarios(0)
                 .withSummaryData()
                 .once(function (scenarios) {
                     try {
@@ -80,47 +79,34 @@ Dashboard.prototype = {
                 .start();
             })
             .then(function () {
-                return insight.getView().getScenarioProperties(0);
+                return self.view.getScenarioProperties(0);
             })
             .then(function (props) {
                 return props.execute(execMode, {
                     suppressClearPrompt: true // we dont want the prompt for a refresh
                 });
-            })
+            })*/
+
+            return self.api.executeScenario(self.scenarioId, self.config.executionMode)
             .then(function () {
-                // show the custom overlay
-                dashboard._doOverlay(true); /* global dashboard */
+                // force the custom overlay on
+                self._doOverlay(true);
             })
             .catch(function (error) {
-                var title = 'Failed to refresh the dashboard';
-                var message;
-                switch (error.status) {
-                    case 403:
-                        message = 'Insufficient rights to execute the dashboard scenario.';
-                        break;
-                    case 404:
-                        message = 'Internal error. The scenario or execution mode "' +
-                            execMode +
-                            '" does not exist.';
-                        break;
-                    case 423:
-                        message = 'Internal error. The scenario is locked.';
-                        break;
-                    default:
-                        message = error.message;
-                        break;
-                }
-                insight.getView().showErrorMessage(title + ": " + message);
-                throw error;
+                self.view.showErrorMessage('Failed to refresh the dashboard with ' + error);
+                return Promise.reject();
             });
     },
 
     /*
     PRIVATE INTERFACE
     */
+    _getCurrentUser: function() {
+        var self=this;
+        return self.api.getCurrentUser();
+    },
     _findSystemFolder: function () {
         var self = this;
-
         return self.api.getRootFolders(self.appId)
             .then(folders => {
                     var found = false;
@@ -132,14 +118,15 @@ Dashboard.prototype = {
                     return found;
                 })
             .catch(err => {
-                    throw new Error("Failed to check for folder " + self.config.systemFolder + " existance with " + err);
+                    self.view.showErrorMessage("Failed to check for folder " + self.config.systemFolder + " existance with " + err);
+                    return Promise.reject();
                 }
             );
     },
     _createSystemFolder: function () {
         var self = this;
 
-        return self.api.createRootFolder(insight.getView().getApp(), self.config.systemFolder)
+        return self.api.createRootFolder(self.app, self.config.systemFolder)
             .then(folder => {
                     if (folder.name !== self.config.systemFolder)
                         throw new Error("Permissions issue. Folder " + self.config.systemFolder + " exists but is not accessible");
@@ -147,7 +134,8 @@ Dashboard.prototype = {
                 }
             )
             .catch(err => {
-                    throw new Error("Failed to create folder " + self.config.systemFolder + " with " + err);
+                    self.view.showErrorMessage("Failed to create folder " + self.config.systemFolder + " with " + err);
+                    return Promise.reject();
             });
     },
     _findOrCreateSystemFolder: function() {
@@ -176,22 +164,15 @@ Dashboard.prototype = {
     _shareSystemFolder: function () {
         var self = this;
 
-        if (!self.folderId)
-            throw new Error("Dashboard not initialized, missing folder id");
-
         return self.api.shareFolder(self.folderId, "FULLACCESS")
             .then(success => success.id)
             .catch(err => {
-                throw new Error("Failed to set dashboard folder to fully shared with " + err);
+                self.view.showErrorMessage("Failed to set dashboard folder to fully shared with " + err);
+                return Promise.reject();
             });
     },
     _findUserDashboardScenario: function () {
         var self = this;
-
-        if (!self.userId)
-            throw new Error("Dashboard not initialized, missing user id");
-        if (!self.folderId)
-            throw new Error("Dashboard not initialized, missing folder id");
 
         var scenarioName = self.config.viewId + "." + self.userId;
 
@@ -205,7 +186,8 @@ Dashboard.prototype = {
                     return found;
                 })
             .catch(err => {
-                    throw new Error("Failed to check for scenario " + scenarioName + " existance with " + err);
+                    self.view.showErrorMessage("Failed to check for scenario " + scenarioName + " existance with " + err);
+                    return Promise.reject();
             });
     },
     _createUserDashboardScenario: function () {
@@ -214,10 +196,11 @@ Dashboard.prototype = {
         var scenarioName = self.config.viewId + "." + self.userId;
 
 
-        return self.api.createScenario(insight.getView().getApp(), self.folderId, scenarioName, self.config.scenarioType)
+        return self.api.createScenario(self.app, self.folderId, scenarioName, self.config.scenarioType)
             .then(scenario => scenario.id)
             .catch(err => {
-                    throw new Error("Failed to create scenario " + scenarioName + " with " + err);
+                    self.view.showErrorMessage("Failed to create scenario " + scenarioName + " with " + err);
+                    return Promise.reject();
                 });
     },
     _findOrCreateUserDashboardScenario: function(){
@@ -242,32 +225,25 @@ Dashboard.prototype = {
     _isUserDashboardScenarioLoaded: function () {
         var self = this;
 
-        if (!self.scenarioId)
-            throw new Error("Dashboard not initialized, missing scenario id");
-
         return self.api.getScenario(self.scenarioId)
             .then(scenario => scenario.loaded)
             .catch(err => {
-                    throw new Error("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
+                    self.view.showErrorMessage("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
+                    return Promise.reject();
                 });
     },
     _loadUserDashboardScenario: function () {
         var self = this;
 
-        if (!self.scenarioId)
-            throw new Error("Dashboard not initialized, missing scenario id");
-
         return self.api.executeScenario(self.scenarioId, self.config.executionMode)
             .then(() => { return true;})
             .catch(err => {
-                throw new Error("Failed to load scenario " + self.scenarioId + " with " + err);
+                self.view.showErrorMessage("Failed to load scenario " + self.scenarioId + " with " + err);
+                return Promise.reject();
             });
     },
     _isUserDashboardScenarioExecuting: function () {
         var self = this;
-
-        if (!self.scenarioId)
-            throw new Error("Dashboard not initialized, missing scenario id");
 
         // Insight 4, queued/executing <= existence of job
         if (self.api.getVersion() === 1)
@@ -320,19 +296,22 @@ Dashboard.prototype = {
         }
 
         // start polling every interval
-        self.polling = window.setInterval(function () {
-                self._isUserDashboardScenarioExecuting()
-                    .then(function (status) {
-                        if (status) { // executing
-                            self._showOverlay(true);
-                        } else {
-                            self._showOverlay(false);
-                            window.clearInterval(self.polling);
-                        }
-                    });
-            },
+        self.polling = window.setInterval(
+            self._updateOverlay.bind(self),
             1000 * self.config.executionPollingInterval
         );
+    },
+    _updateOverlay: function () {
+        var self=this;
+        return self._isUserDashboardScenarioExecuting()
+            .then(function (status) {
+                if (status) { // executing
+                    self._showOverlay(true);
+                } else {
+                    self._showOverlay(false);
+                    window.clearInterval(self.polling);
+                }
+            });
     },
     _dependencyModified: function (t) {
         var self = this;
@@ -344,42 +323,37 @@ Dashboard.prototype = {
         // needs to be a rest call as scenario selection not yet active
         var self = this;
 
-        if (!self.scenarioId)
-            throw new Error("Dashboard not initialized, missing scenario id");
-
        return self.api.getScenarioSummaryData(self.scenarioId)
             .then(summary => summary.lastExecutionDate)
            .catch(err => {
-               throw new Error("Failed to get scenario summnary data " + self.scenarioId + " with " + err);
+               self.view.showErrorMessage("Failed to get scenario summnary data " + self.scenarioId + " with " + err);
+               return Promise.reject();
            });
     },
     _doDependencyChecking: function () {
         var self = this;
 
+        // and start polling 
+        window.setInterval(
+            self._dependencyCheck.bind(self),
+            1000 * self.config.dependencyPollingInterval
+        );
+
         // do an immediate check
-        self._getLastExecutionDate()
+        return self._dependencyCheck();
+    },
+    _dependencyCheck: function () {
+        var self=this;
+
+        return self._getLastExecutionDate()
             .then(function (lastModified) {
                 return self._dependencyModified(lastModified);
             })
             .then(function (modified) {
                 self.current(!modified);
             });
-
-        // and start polling 
-        window.setInterval(function () {
-                self._getLastExecutionDate()
-                    .then(function (lastModified) {
-                        return self._dependencyModified(lastModified);
-                    })
-                    .then(function (modified) {
-                        self.current(!modified);
-                    });
-            },
-            1000 * self.config.dependencyPollingInterval
-        );
     }
 };
-
 function Dashboard(userconfig) {
     var self=this;
     $.extend(self, {
@@ -406,7 +380,15 @@ function Dashboard(userconfig) {
         userId: null
     }, userconfig);
 
-    self.appId = insight.getView().getApp().getId();
+    self.view = insight.getView();
+    self.app = self.view.getApp();
+    self.appId = self.app.getId();
+
+    // auto detect the insight version number
+    if (typeof insight.getVersion == 'undefined' || insight.getVersion().major === 4)
+        self.api = new InsightRESTAPIv1();
+    else
+        self.api = new InsightRESTAPI();
 
     // integrate user provided config values
     $.extend(self.config, userconfig);
@@ -417,11 +399,11 @@ function Dashboard(userconfig) {
         throw new Error("Invalid system folder setting, must be a root folder");
 
     // dashboard uses custom overlay
-    insight.getView().configure({
+    self.view.configure({
         executionOverlay: false
     });
 
-    self.current = VDL.createVariable(true);
+    self.current = ko.observable(true);
 
      /*
     Custom overlay the dashboard framework can control, including custom text
@@ -473,10 +455,17 @@ InsightRESTAPIv1.prototype = {
         var self = this;
         return self.version;
     },
-    restRequest: function(path, type, data) {
+    restRequest: function(path, type, data, nobase) {
         var self = this;
+        
+        var url;
+        if (nobase)
+            url = "/" + path;
+        else
+            url = self.BASE_REST_ENDPOINT + path;
+            
         var request = {
-            url: insight.resolveRestEndpoint(self.BASE_REST_ENDPOINT + path),
+            url: insight.resolveRestEndpoint(url),
             type: type,
             data: data,
             headers: {
@@ -498,8 +487,8 @@ InsightRESTAPIv1.prototype = {
         });
     },
     getCurrentUser: function() {
-        return insight.getView().getUser()
-            .then(user => user._data)
+        var self=this;
+        return self.restRequest('auth/currentuser', 'GET', null, true); // this isnt under /data
     },
     getRootFolders: function(appId) {
         var self = this;
@@ -549,7 +538,7 @@ InsightRESTAPIv1.prototype = {
 
         var parent = {
             objectType: "FOLDER",
-                id: parentId
+            id: parentId
         };
 
         return app.createScenario(parent, name, type)
@@ -575,7 +564,7 @@ InsightRESTAPIv1.prototype = {
     shareFolder: function(id, shareStatus) {
         var self = this;
 
-        if (shareStatus != "PRIVATE" && shareStatus != "READONLY" && shareStatus != "FULLACCESS")
+        if (shareStatus !== "PRIVATE" && shareStatus !== "READONLY" && shareStatus !== "FULLACCESS")
             return Promise.reject("Invalid share status");
 
         var payload = {
@@ -646,10 +635,17 @@ InsightRESTAPI.prototype = {
         var self = this;
         return self.version;
     },
-    restRequest: function(path, type, data) {
+    restRequest: function(path, type, data, nobase) {
         var self = this;
+        
+        var url;
+        if (nobase)
+            url = "/" + path;
+        else
+            url = self.BASE_REST_ENDPOINT + path;
+            
         var request = {
-            url: insight.resolveRestEndpoint(self.BASE_REST_ENDPOINT + path),
+            url: insight.resolveRestEndpoint(url),
             type: type,
             data: data,
             headers: {
@@ -757,7 +753,7 @@ InsightRESTAPI.prototype = {
     shareFolder: function(id, shareStatus) {
         var self = this;
 
-        if (shareStatus != "PRIVATE" && shareStatus != "READONLY" && shareStatus != "FULLACCESS")
+        if (shareStatus !== "PRIVATE" && shareStatus !== "READONLY" && shareStatus !== "FULLACCESS")
             return Promise.reject("Invalid share status");
 
         var payload = {
@@ -793,15 +789,7 @@ InsightRESTAPI.prototype = {
         return self.restRequest('jobs', 'POST', JSON.stringify(payload));
     },
     getDashboardStatus: function(appId, timestamp, path, exclusions) {
-        var self=this;
-
-        var payload = {
-            timestamp: timestamp,
-            path: path,
-            exclusions: exclusions
-        };
-
-        return self.restRequest('project/' + appId + '/dashboard/status', 'POST', JSON.stringify(payload))
-            .then(response => response.dataModifiedSinceTimestamp);
+        // TODO v5 doesnt support status endpoint yet
+        return Promise.resolve(false);
     }
 }
