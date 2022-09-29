@@ -45,7 +45,7 @@ Dashboard.prototype = {
     start: function () {
         var self = this;
 
-        // get the user
+        // create/repair all of the system pieces
         return self._getCurrentUser()
             .then(user => { self.userId = user.id;})
             .then(self._findOrCreateSystemFolder.bind(this))
@@ -91,6 +91,8 @@ Dashboard.prototype = {
             .then(function () {
                 // force the custom overlay on
                 self._doOverlay(true);
+                // and restart the framework to repair any resources that are missing for resilience
+                self.start();
             })
             .catch(function (error) {
                 self.view.showErrorMessage('Failed to refresh the dashboard with ' + error);
@@ -224,13 +226,8 @@ Dashboard.prototype = {
     },
     _isUserDashboardScenarioLoaded: function () {
         var self = this;
-
-        return self.api.getScenario(self.scenarioId)
-            .then(scenario => scenario.loaded)
-            .catch(err => {
-                    self.view.showErrorMessage("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
-                    return Promise.reject();
-                });
+        
+        return self.api.isScenarioLoaded(self.scenarioId);
     },
     _loadUserDashboardScenario: function () {
         var self = this;
@@ -245,14 +242,7 @@ Dashboard.prototype = {
     _isUserDashboardScenarioExecuting: function () {
         var self = this;
 
-        // Insight 4, queued/executing <= existence of job
-        if (self.api.getVersion() === 1)
-            return self.api.getJob(self.scenarioId)
-                .then(success => { return true; }, failure => { return false; });
-        // Insight 5, queued/executing <= reserved for job flag on scenario
-        else
-            return self.api.getScenario(self.scenarioId)
-                .then(scenario => scenario.summary.reservedForJob);
+        return self.api.jobExists(self.scenarioId);
     },
     _ensureUserDashboardScenarioLoaded: function() {
         var self=this;
@@ -260,18 +250,22 @@ Dashboard.prototype = {
         return self._isUserDashboardScenarioLoaded()
             .then(function (loaded) {
                 if (!loaded) {
-                    // if the scenario is not loaded but is queued or executing already this will fail
-                    self._loadUserDashboardScenario()
-                        .then(function () {
-                            // we know the scenario will be executing and to avoid any potential race condition we will
-                            // show the overlay explicitly rather than test for execution status
-                            self._doOverlay(true);
-                        });
+                    return self._isUserDashboardScenarioExecuting()
+                        .then(jobexists => {
+                            if (jobexists)
+                                self._doOverlay();
+                            else
+                                return self._loadUserDashboardScenario()
+                                    .then(function () {
+                                        // we know the scenario will be executing and to avoid any potential race condition we will
+                                        // show the overlay explicitly rather than test for execution status
+                                        self._doOverlay(true);
+                                    });
+                        })
                 }
-                else {
+                else
                     // check if we need to put up the overlay for an already executing scenario
                     self._doOverlay();
-                }
             });
     },
     _showOverlay: function (show) {
@@ -296,7 +290,8 @@ Dashboard.prototype = {
         }
 
         // start polling every interval
-        self.polling = window.setInterval(
+        window.clearInterval(self.pollingOverlay);
+        self.pollingOverlay = window.setInterval(
             self._updateOverlay.bind(self),
             1000 * self.config.executionPollingInterval
         );
@@ -309,7 +304,7 @@ Dashboard.prototype = {
                     self._showOverlay(true);
                 } else {
                     self._showOverlay(false);
-                    window.clearInterval(self.polling);
+                    window.clearInterval(self.pollingOverlay);
                 }
             });
     },
@@ -334,7 +329,8 @@ Dashboard.prototype = {
         var self = this;
 
         // and start polling 
-        window.setInterval(
+        window.clearInterval(self.pollingDependency);
+        self.pollingDependency = window.setInterval(
             self._dependencyCheck.bind(self),
             1000 * self.config.dependencyPollingInterval
         );
@@ -347,7 +343,8 @@ Dashboard.prototype = {
 
         return self._getLastExecutionDate()
             .then(function (lastModified) {
-                return self._dependencyModified(lastModified);
+                if (lastModified)
+                    return self._dependencyModified(lastModified);
             })
             .then(function (modified) {
                 self.current(!modified);
@@ -600,11 +597,23 @@ InsightRESTAPIv1.prototype = {
 
         return self.restRequest('execution', 'POST', JSON.stringify(payload));
     },
-    getJob: function(scenarioId) {
+    isScenarioLoaded: function(scenarioId) {
+        var self=this;
+        
+        return self.getScenario(scenarioId)
+            .then(scenario => {
+                scenario.loaded;
+            })
+            .catch(err => {
+                self.view.showErrorMessage("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
+                return Promise.reject();
+            });  
+    },
+    jobExists: function(scenarioId) {
         var self=this;
 
         return self.restRequest('scenario/' + scenarioId + '/job', 'GET')
-            .then(response => response.summary);
+            .then(success => { return true; }, failure => { return false; });
     },
     getDashboardStatus: function(appId, timestamp, path, exclusions) {
         var self=this;
@@ -629,7 +638,6 @@ function InsightRESTAPI() {
 InsightRESTAPI.prototype = {
     BASE_REST_ENDPOINT: '/api/',
     contentNegotiation: 'application/vnd.com.fico.xpress.insight.v2+json',
-    uploadPollingInterval: 1000,
 
     getVersion: function() {
         var self = this;
@@ -788,8 +796,26 @@ InsightRESTAPI.prototype = {
 
         return self.restRequest('jobs', 'POST', JSON.stringify(payload));
     },
+    isScenarioLoaded: function(scenarioId) {
+        var self=this;
+        
+        return self.getScenario(scenarioId)
+            .then(scenario => {
+                return scenario.summary.state === "LOADED";
+            })
+            .catch(err => {
+                self.view.showErrorMessage("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
+                return Promise.reject();
+            });  
+    },
+    jobExists: function (scenarioId) {
+        var self=this;
+        
+        return self.getScenario(scenarioId)
+            .then(scenario => scenario.summary.reservedForJob);
+    },
     getDashboardStatus: function(appId, timestamp, path, exclusions) {
         // TODO v5 doesnt support status endpoint yet
         return Promise.resolve(false);
     }
-}
+};

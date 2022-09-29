@@ -25,7 +25,7 @@ Feature: Static dashboard
         And the _system folder is owned by admin
         And the _system folder is shared full access
         When the user navigates into the _system folder
-        Then they see a scenario called "dashboard1.admin" owned by admin and private
+        Then they see a scenario called "dashboard1.admin" owned by admin and private ** XI4 known issue, will be full access
     
     Scenario: the dashboarding is resilient to the system folder being deleted
         Given the user has performed the previous tests

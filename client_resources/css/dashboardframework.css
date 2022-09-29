@@ -125,3 +125,6 @@ body {
 	padding-left: 55px;
 	background-position: 14px 11px;
 }
+#outofdate-message .alert .close {
+	display: none;
+}
