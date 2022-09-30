@@ -66,26 +66,6 @@ Dashboard.prototype = {
     },
     refresh: function(execMode) {
         var self=this;
-        /*return new Promise(function (resolve, reject) {
-            self.view.withScenarios(0)
-                .withSummaryData()
-                .once(function (scenarios) {
-                    try {
-                        resolve(scenarios[0].getSummaryData().isLoaded());
-                    } catch (exc) {
-                        reject(exc);
-                    }
-                })
-                .start();
-            })
-            .then(function () {
-                return self.view.getScenarioProperties(0);
-            })
-            .then(function (props) {
-                return props.execute(execMode, {
-                    suppressClearPrompt: true // we dont want the prompt for a refresh
-                });
-            })*/
 
             return self.api.executeScenario(self.scenarioId, self.config.executionMode)
             .then(function () {
@@ -599,15 +579,12 @@ InsightRESTAPIv1.prototype = {
     },
     isScenarioLoaded: function(scenarioId) {
         var self=this;
-        
+        debugger;
         return self.getScenario(scenarioId)
             .then(scenario => {
-                scenario.loaded;
+                debugger;
+                return scenario.loaded;
             })
-            .catch(err => {
-                self.view.showErrorMessage("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
-                return Promise.reject();
-            });  
     },
     jobExists: function(scenarioId) {
         var self=this;
@@ -803,10 +780,6 @@ InsightRESTAPI.prototype = {
             .then(scenario => {
                 return scenario.summary.state === "LOADED";
             })
-            .catch(err => {
-                self.view.showErrorMessage("Failed to check scenario " + self.scenarioId + " is loaded with " + err);
-                return Promise.reject();
-            });  
     },
     jobExists: function (scenarioId) {
         var self=this;

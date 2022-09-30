@@ -425,20 +425,19 @@ describe("Dashboard", function() {
             initDashboardObject();
         });
 
-        it("should return the loaded status of the scenario", function (done) {
-            spyOn(dashboard.api,"getScenario").and.returnValue(Promise.resolve({loaded: true}));
+        it("should return true if the scenario is loaded", function (done) {
+            spyOn(dashboard.api,"isScenarioLoaded").and.returnValue(Promise.resolve(true));
             dashboard._isUserDashboardScenarioLoaded()
                 .then(loaded => {
-                    expect(loaded).toBeTruthy();
+                    expect(loaded).toEqual(true);
                     done();
                 });
         });
-        it("should show an error message if it cant get the scenario status", function (done) {
-            spyOn(dashboard.api,"getScenario").and.returnValue(Promise.reject("ANERROR"));
+        it("should return false if the scenario is not loaded", function (done) {
+            spyOn(dashboard.api,"isScenarioLoaded").and.returnValue(Promise.resolve(false));
             dashboard._isUserDashboardScenarioLoaded()
-                .then(done.fail)
-                .catch(err => {
-                    expect(dashboard.view.showErrorMessage).toHaveBeenCalledWith("Failed to check scenario " + dashboard.scenarioId + " is loaded with ANERROR");
+                .then(loaded => {
+                    expect(loaded).toEqual(false);
                     done();
                 });
         });
@@ -471,53 +470,21 @@ describe("Dashboard", function() {
                 initDashboardObject();
             });
 
-            it("should return true if the user scenario is executing (insight 4)", function (done) {
-                spyOn(dashboard.api, "getVersion").and.returnValue(1); // insight 4 REST API v1
-                spyOn(dashboard.api, "getJob").and.returnValue(Promise.resolve());
+            it("should return true if the user scenario is executing", function (done) {
+                spyOn(dashboard.api, "jobExists").and.returnValue(Promise.resolve(true));
                 dashboard._isUserDashboardScenarioExecuting()
                     .then(returned => {
-                        expect(returned).toBeTruthy();
-                        expect(dashboard.api.getJob).toHaveBeenCalledWith(dashboard.scenarioId);
+                        expect(dashboard.api.jobExists).toHaveBeenCalledWith(dashboard.scenarioId);
+                        expect(returned).toEqual(true);
                         done();
                     });
             });
-            it("should return false if the user scenario is not executing (insight 4)", function (done) {
-                spyOn(dashboard.api, "getVersion").and.returnValue(1); // insight 4 REST API v1
-                spyOn(dashboard.api, "getJob").and.returnValue(Promise.reject());
+            it("should return false if the user scenario is not executing", function (done) {
+                spyOn(dashboard.api, "jobExists").and.returnValue(Promise.resolve(false));
                 dashboard._isUserDashboardScenarioExecuting()
                     .then(returned => {
-                        expect(returned).toBeFalsy();
-                        expect(dashboard.api.getJob).toHaveBeenCalledWith(dashboard.scenarioId);
-                        done();
-                    });
-            });
-            it("should return true if the user scenario is executing (insight 5)", function (done) {
-                var scenario = {
-                    summary: {
-                        reservedForJob: true
-                    }
-                }
-                spyOn(dashboard.api, "getVersion").and.returnValue(2); // insight 4 REST API v1
-                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve(scenario));
-                dashboard._isUserDashboardScenarioExecuting()
-                    .then(returned => {
-                        expect(returned).toBeTruthy();
-                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(dashboard.scenarioId);
-                        done();
-                    });
-            });
-            it("should return false if the user scenario is not executing (insight 5)", function (done) {
-                var scenario = {
-                    summary: {
-                        reservedForJob: false
-                    }
-                }
-                spyOn(dashboard.api, "getVersion").and.returnValue(2); // insight 4 REST API v1
-                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve(scenario));
-                dashboard._isUserDashboardScenarioExecuting()
-                    .then(returned => {
-                        expect(returned).toBeFalsy();
-                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(dashboard.scenarioId);
+                        expect(returned).toEqual(false);
+                        expect(dashboard.api.jobExists).toHaveBeenCalledWith(dashboard.scenarioId);
                         done();
                     });
             });
@@ -527,8 +494,9 @@ describe("Dashboard", function() {
                 initDashboardObject();
             });
 
-            it("should load the user scenario if its not already loading, and show the overlay", function (done) {
+            it("should load the user scenario if its not already loaded nor loading, and show the overlay", function (done) {
                 spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(false));
+                spyOn(dashboard, "_isUserDashboardScenarioExecuting").and.returnValue(Promise.resolve(false));
                 spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve());
                 spyOn(dashboard, "_doOverlay");
                 dashboard._ensureUserDashboardScenarioLoaded()
@@ -540,6 +508,19 @@ describe("Dashboard", function() {
             });
             it("should check if the overlay needs showing, if the user scenario is already loaded", function (done) {
                 spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(true));
+                spyOn(dashboard, "_isUserDashboardScenarioExecuting").and.returnValue(Promise.resolve(false));
+                spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve());
+                spyOn(dashboard, "_doOverlay");
+                dashboard._ensureUserDashboardScenarioLoaded()
+                    .then(() => {
+                        expect(dashboard._loadUserDashboardScenario).not.toHaveBeenCalled();
+                        expect(dashboard._doOverlay).toHaveBeenCalled();
+                        done();
+                    });
+            });
+            it("should check if the overlay needs showing, if the user scenario is already loading", function (done) {
+                spyOn(dashboard, "_isUserDashboardScenarioLoaded").and.returnValue(Promise.resolve(false));
+                spyOn(dashboard, "_isUserDashboardScenarioExecuting").and.returnValue(Promise.resolve(true));
                 spyOn(dashboard, "_loadUserDashboardScenario").and.returnValue(Promise.resolve());
                 spyOn(dashboard, "_doOverlay");
                 dashboard._ensureUserDashboardScenarioLoaded()
@@ -1014,21 +995,51 @@ describe("Dashboard", function() {
                     })
             });
         });
-        describe('InsightRESTAPIv1.getJob()', function () {
+        describe('InsightRESTAPIv1.isScenarioLoaded()', function () {
             beforeEach(function () {
                 initDashboardObject();
             });
 
-            it("Should fetch the job for the scenario", function (done) {
-                var response = {
-                    summary: { 'some' : 'fields'}
-                }
+            it("Should return true if the scenario is in the loaded state", function (done) {
+                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve({loaded: true}));
+                debugger;
+                dashboard.api.isScenarioLoaded(666)
+                    .then(function (loaded) {
+                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(666);
+                        expect(loaded).toEqual(true);
+                        done();
+                    })
+            });
+            it("Should return false if the scenario is not in the loaded state", function (done) {
+                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve({loaded: false}));
+                dashboard.api.isScenarioLoaded(666)
+                    .then(function (loaded) {
+                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(666);
+                        expect(loaded).toEqual(false);
+                        done();
+                    })
+            });
+        });
+        describe('InsightRESTAPIv1.jobExists()', function () {
+            beforeEach(function () {
+                initDashboardObject();
+            });
 
-                spyOn(dashboard.api, "restRequest").and.returnValue(Promise.resolve(response));
-                dashboard.api.getJob(666)
-                    .then(function (summary) {
+            it("Should return true if there is a job for the scenario", function (done) {
+                spyOn(dashboard.api, "restRequest").and.returnValue(Promise.resolve());
+                dashboard.api.jobExists(666)
+                    .then(function (exists) {
                         expect(dashboard.api.restRequest).toHaveBeenCalledWith('scenario/666/job', 'GET');
-                        expect(summary).toEqual(response.summary);
+                        expect(exists).toEqual(true);
+                        done();
+                    })
+            });
+            it("Should return false if there is not a job for the scenario", function (done) {
+                spyOn(dashboard.api, "restRequest").and.returnValue(Promise.reject());
+                dashboard.api.jobExists(666)
+                    .then(function (exists) {
+                        expect(dashboard.api.restRequest).toHaveBeenCalledWith('scenario/666/job', 'GET');
+                        expect(exists).toEqual(false);
                         done();
                     })
             });
@@ -1365,7 +1376,6 @@ describe("Dashboard", function() {
             };
 
             it("Should return the summary data for the scenario", function (done) {
-                debugger;
                 spyOn(dashboard.api, "restRequest").and.returnValue(Promise.resolve(data));
                 dashboard.api.getScenarioSummaryData(666)
                     .then(summary => {
@@ -1390,6 +1400,74 @@ describe("Dashboard", function() {
                 dashboard.api.executeScenario(payload.scenario.id, payload.executionMode)
                     .then(() => {
                         expect(dashboard.api.restRequest).toHaveBeenCalledWith('jobs', 'POST',JSON.stringify(payload));
+                        done();
+                    })
+            });
+        });
+        describe('InsightRESTAPI.isScenarioLoaded()', function () {
+            beforeEach(function () {
+                initDashboardObject();
+            });
+
+            it("Should return true if the scenario is in the loaded state", function (done) {
+                var scenario = {
+                    summary: {
+                        state: "LOADED"
+                    }
+                }
+                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve(scenario));
+                dashboard.api.isScenarioLoaded(666)
+                    .then(function (loaded) {
+                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(666);
+                        expect(loaded).toEqual(true);
+                        done();
+                    })
+            });
+            it("Should return false if the scenario is not in the loaded state", function (done) {
+                var scenario = {
+                    summary: {
+                        state: "UNLOADED"
+                    }
+                }
+                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve(scenario));
+                dashboard.api.isScenarioLoaded(666)
+                    .then(function (loaded) {
+                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(666);
+                        expect(loaded).toEqual(false);
+                        done();
+                    })
+            });
+        });
+        describe('InsightRESTAPI.jobExists()', function () {
+            beforeEach(function () {
+                initDashboardObject();
+            });
+
+            it("Should return true if there is a job for the scenario", function (done) {
+                var scenario = {
+                    summary: {
+                        reservedForJob: true
+                    }
+                }
+                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve(scenario));
+                dashboard.api.jobExists(666)
+                    .then(function (exists) {
+                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(666);
+                        expect(exists).toEqual(true);
+                        done();
+                    })
+            });
+            it("Should return false if there is not a job for the scenario", function (done) {
+                var scenario = {
+                    summary: {
+                        reservedForJob: false
+                    }
+                }
+                spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve(scenario));
+                dashboard.api.jobExists(666)
+                    .then(function (exists) {
+                        expect(dashboard.api.getScenario).toHaveBeenCalledWith(666);
+                        expect(exists).toEqual(false);
                         done();
                     })
             });
