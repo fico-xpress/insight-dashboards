@@ -292,14 +292,14 @@ Dashboard.prototype = {
         var self = this;
         var exclusions  = ["/" + self.config.systemFolder].concat(self.config.dependencyExclusions);
 
-        return self.api.getDashboardStatus(self.appId, t, self.config.dependencyPath, exclusions);
+        return self.api.getDashboardStatus(self.app, t, self.config.dependencyPath, exclusions);
     },
     _getLastExecutionDate: function () {
         // needs to be a rest call as scenario selection not yet active
         var self = this;
 
        return self.api.getScenarioSummaryData(self.scenarioId)
-            .then(summary => summary.lastExecutionDate)
+            .then(summary => summary.executionFinished)
            .catch(err => {
                self.view.showErrorMessage("Failed to get scenario summnary data " + self.scenarioId + " with " + err);
                return Promise.reject();
@@ -307,7 +307,6 @@ Dashboard.prototype = {
     },
     _doDependencyChecking: function () {
         var self = this;
-
         // and start polling 
         window.clearInterval(self.pollingDependency);
         self.pollingDependency = window.setInterval(
@@ -320,7 +319,6 @@ Dashboard.prototype = {
     },
     _dependencyCheck: function () {
         var self=this;
-
         return self._getLastExecutionDate()
             .then(function (lastModified) {
                 if (lastModified)
@@ -374,6 +372,10 @@ function Dashboard(userconfig) {
     var regexp = /^[\/]*[\w\. ]+$/;
     if (!regexp.test(self.config.systemFolder ))
         throw new Error("Invalid system folder setting, must be a root folder");
+        
+    // for consistency with how system resolves paths, dependency path of root should be empty not /
+    if (self.config.dependencyPath === "/")
+        self.config.dependencyPath = "";
 
     // dashboard uses custom overlay
     self.view.configure({
@@ -564,7 +566,13 @@ InsightRESTAPIv1.prototype = {
 
         var payload = {}; // summary data only, no entities
         return self.restRequest('scenario/' + id + '/data', 'POST', JSON.stringify(payload))
-        .then(response => response.summary);
+        .then(response => {
+            // normalize last executini timestamp to v5 standard
+            var summary = response.summary;
+            summary.executionFinished = summary.lastExecutionDate;
+            delete summary.lastExecutionDate;
+            return summary;
+        });
     },
     executeScenario: function(id, mode) {
         var self=this;
@@ -579,10 +587,8 @@ InsightRESTAPIv1.prototype = {
     },
     isScenarioLoaded: function(scenarioId) {
         var self=this;
-        debugger;
         return self.getScenario(scenarioId)
             .then(scenario => {
-                debugger;
                 return scenario.loaded;
             })
     },
@@ -592,7 +598,7 @@ InsightRESTAPIv1.prototype = {
         return self.restRequest('scenario/' + scenarioId + '/job', 'GET')
             .then(success => { return true; }, failure => { return false; });
     },
-    getDashboardStatus: function(appId, timestamp, path, exclusions) {
+    getDashboardStatus: function(app, timestamp, path, exclusions) {
         var self=this;
 
         var payload = {
@@ -601,7 +607,7 @@ InsightRESTAPIv1.prototype = {
             exclusions: exclusions
         };
 
-        return self.restRequest('project/' + appId + '/dashboard/status', 'POST', JSON.stringify(payload))
+        return self.restRequest('project/' + app.getId() + '/dashboard/status', 'POST', JSON.stringify(payload))
             .then(response => response.dataModifiedSinceTimestamp);
     }
 }
@@ -787,8 +793,110 @@ InsightRESTAPI.prototype = {
         return self.getScenario(scenarioId)
             .then(scenario => scenario.summary.reservedForJob);
     },
-    getDashboardStatus: function(appId, timestamp, path, exclusions) {
-        // TODO v5 doesnt support status endpoint yet
-        return Promise.resolve(false);
+    getDashboardStatus: function(app, timestamp, path, exclusions) {
+        var self=this;
+        // v5 version of this endpoint takes uuids, meaning that we need to resolve the path based config to uuids
+        if (!self.objectCache)
+            self.objectCache = [];
+        
+        var promises = [];
+        var fqp;
+        
+        // if we havent done so already, resolve the path
+        if (!self.objectCache[path]) {
+            fqp = "/" + app.getName() + path;
+            fqp = encodeURIComponent(fqp);
+            promises.push(
+                self.restRequest("repository?path=" + fqp, "GET")
+                    .then(object => {
+                        self.objectCache[object.path] = object;
+                    })
+                    .catch(err => {
+                        return Promise.reject("Invalid config, failed to resolve path=" + path + " with error " + err);
+                    })
+                );
+        }
+        // if we havent done so already, resolve the exclusions
+        for (var i=0; i<exclusions.length; i++) {
+            if (!self.objectCache[exclusions[i]]) {
+                fqp = "/" + app.getName() + exclusions[i];
+                fqp = encodeURIComponent(fqp);
+                promises.push(
+                    self.restRequest("repository?path=" + fqp, "GET")
+                        .then(object => {
+                            self.objectCache[object.path] = object;
+                        })
+                        .catch(err => {
+                            return Promise.reject("Invalid config, failed to resolve path=" + exclusions[i] + " with error " + err);
+                        })
+                );
+            }
+        }
+        
+        // if we have any resolving to do
+        if (promises.length>0)
+            return Promise.all(promises)
+                .then(() => {
+                    var ids = [];
+                    for (var i=0; i<exclusions.length; i++)
+                        ids.push(self.objectCache["/" + app.getName() + exclusions[i]].id);
+                        
+                    var payload = {
+                        root: {
+                            id: self.objectCache["/" + app.getName() + path].id,
+                            objectType: self.objectCache["/" + app.getName() + path].objectType
+                        },
+                        excludedFolderIds: ids,
+                        timestamp: timestamp
+                    }
+        
+                    return self.restRequest("scenarios/queries/any-modified-since", "POST", JSON.stringify(payload))
+                        .then(response => response.modified);
+                })
+        else {
+            var ids = [];
+            for (var i=0; i<exclusions.length; i++)
+                ids.push(self.objectCache[exclusions[i]].id);
+                
+            var payload = {
+                root: {
+                    id: self.objectCache[path].id,
+                    objectTyoe: self.objectCache[path].objectType
+                },
+                excludedFolderIds: ids,
+                timestamp: timestamp
+            }
+            return self.restRequest("scenarios/queries/any-modified-since", "POST", JSON.stringify(payload))
+                .then(response => response.modified);
+        }
     }
 };
+
+/*
+Request:
+{
+  "root": {
+    "id": "uuid",
+    “objectType” : “APP|FOLDER”
+  },
+  "excludedFolderIds": [uuid, uuid], //can be empty
+  "timestamp": "UTC timestamp"
+}
+
+Response: 
+{
+    "modified": true
+}
+*/
+/*
+var self=this;
+
+        var payload = {
+            timestamp: timestamp,
+            path: path,
+            exclusions: exclusions
+        };
+
+        return self.restRequest('project/' + appId + '/dashboard/status', 'POST', JSON.stringify(payload))
+            .then(response => response.dataModifiedSinceTimestamp);
+            */
