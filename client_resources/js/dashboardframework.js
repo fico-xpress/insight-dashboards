@@ -327,6 +327,31 @@ Dashboard.prototype = {
             .then(function (modified) {
                 self.current(!modified);
             });
+    },
+    _normalizeConfig: function(config) {
+        if (config.dependencyPath) {
+            // path should start with a forward slash
+            if (!config.dependencyPath.match(/^\//))
+                config.dependencyPath = "/" + config.dependencyPath;
+
+            // path should not end with forward slashes
+            config.dependencyPath = config.dependencyPath.replace(/\/*$/, "");
+        }
+
+        if (config.dependencyExclusions) {
+            // exclusions should start with a forward slash
+            for (var i = 0; i < config.dependencyExclusions.length; i++) {
+                if (!config.dependencyExclusions[i].match(/^\//))
+                    config.dependencyExclusions[i] = "/" + config.dependencyExclusions[i];
+            }
+
+            // exclusions should nbot end with forward slashes
+            for (var i = 0; i < config.dependencyExclusions.length; i++) {
+                config.dependencyExclusions[i] = config.dependencyExclusions[i].replace(/\/*$/, "");
+            }
+        }
+
+        return config;
     }
 };
 function Dashboard(userconfig) {
@@ -364,6 +389,9 @@ function Dashboard(userconfig) {
         self.api = new InsightRESTAPIv1();
     else
         self.api = new InsightRESTAPI();
+
+    // normalize user provided config values
+    userconfig = self._normalizeConfig(userconfig);
 
     // integrate user provided config values
     $.extend(self.config, userconfig);

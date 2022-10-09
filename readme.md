@@ -2,20 +2,22 @@
 A small framework that supports rendering Xpress Insight views which are independent of the user's scenario shelf selection. Such a view sits outside of the normal scenario-centric what-if workflow and can be used to report global metrics, summary state across scenarios etc.
 
 ### Pre-requisities
-FICO Xpress Insight 4.50 or later
+FICO Xpress Insight 4 requires 4.50 or later
+
+FICO Xpress Insight 5 requires 5.4 or later
 
 ### Overview
 The framework creates and loads a dashboard scenario to hold the data for the current dashboard view and user. The scenario selection from the shelf is invisibly replaced with the dashboard scenario. The framework provides a dedicated execution overlay (the built in one isn't aware of the selection replacement), refresh button and optional dependency check which searches a path for scenarios that have changed since the dashboard data was last collected.
 
 ### Basic usage
-Declare a VDL view in the companion file as empty-selection-default="true". Every dashboard view needs this attribute set to true, which means the default dashboard will be the first one declared.
+A dashboard should be visible even when the selection is empty or contains unloaded scenarios. So declare a VDL view in the companion file as empty-selection-default="true" and requires-scenarios-loaded="false". Every dashboard view needs this attribute set to true, which means the default dashboard will be the first one declared.
 
 application.xml:
 ```xml
  <client>
     <view-group title="Main">
-        <vdl-view title="Dashboard 1 - manual" path="dashboard1.vdl" empty-selection-default="true"/>
-        <vdl-view title="Dashboard 2 - auto" path="dashboard2.vdl" empty-selection-default="true" />
+        <vdl-view title="Dashboard 1 - manual" path="dashboard1.vdl" empty-selection-default="true" requires-scenarios-loaded="false" />
+        <vdl-view title="Dashboard 2 - auto" path="dashboard2.vdl" empty-selection-default="true" requires-scenarios-loaded="false" />
     </view-group>
 </client>
 ```
@@ -123,6 +125,8 @@ A dashboard typically reports on data collected from other scenarios, or from a 
 The dashboard framework can perform this check on dependent scenarios automatically, set dependencyCheck to true in the constructor config.
 By default the search for modified scenarios starts recursively from the app root and always excludes the system folder containing the dashboard scenarios. Both the starting path and the exclusion list can be customized.
 
+Important: the root path and exclusion paths are always interpeted as relative to the app root. 
+
 dashboard1.js:
 
 ```js
@@ -130,8 +134,8 @@ var dashboard = new Dashboard({
         viewId: "dashboard1",
         executionMode: "loadDashboard",
         dependencyCheck: true
-        //dependencyPath: "/somefolder/",
-        //dependencyExclusions: ["anotherfolder"]
+        //dependencyPath: "/somefolder",
+        //dependencyExclusions: ["/somefolder/anotherfolder"]
     });
 insight.getView().replaceSelection(
     dashboard.start()
@@ -161,7 +165,7 @@ executionPollingInterval: 1,    // seconds between polls to see if the dashboard
 dependencyCheck: false,         // should the dependency check be run automatically
 dependencyPollingInterval: 5,   // seconds frequency for running the dependency check
 dependencyPath: "/",            // repository path relative to the app that the dependency check starts from
-dependencyExclusions: []        // folders to exclude from the dependency check
+dependencyExclusions: []        // full paths of folders to exclude from the dependency check
 ```
 
 ### Considerations for dashboard development

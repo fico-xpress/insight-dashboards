@@ -694,6 +694,36 @@ describe("Dashboard", function() {
                 });
         });
     });
+    describe("_normalizeConfig", function() {
+        beforeEach(function () {
+            initDashboardObject();
+        });
+
+        it("should guarantee the path starts with a forward slash", function() {
+           var config = dashboard._normalizeConfig({
+               dependencyPath: "mypath"
+           });
+           expect(config.dependencyPath).toEqual("/mypath");
+       });
+        it("should guarantee the path does not end with forward slashes", function() {
+            var config = dashboard._normalizeConfig({
+                dependencyPath: "mypath///"
+            });
+            expect(config.dependencyPath).toEqual("/mypath");
+        });
+        it("should guarantee the exclusions starts with a forward slash", function() {
+            var config = dashboard._normalizeConfig({
+                dependencyExclusions: ["exclude1", "exclude2"]
+            });
+            expect(config.dependencyExclusions).toEqual(["/exclude1", "/exclude2"]);
+        });
+        it("should guarantee the exclusions do not end with forward slashes", function() {
+            var config = dashboard._normalizeConfig({
+                dependencyExclusions: ["exclude1/", "exclude2/////"]
+            });
+            expect(config.dependencyExclusions).toEqual(["/exclude1", "/exclude2"]);
+        });
+    });
 
     ////// InsightRESTAPI v1
     describe('InsightRESTAPIv1 tests', function () {
