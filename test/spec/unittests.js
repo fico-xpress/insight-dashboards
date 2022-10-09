@@ -24,7 +24,7 @@ describe("Dashboard", function() {
             executionMode: 'test_executionMode',
             systemFolder: '_system',
             dependencyPath: '/test_dependencyPath',
-            dependencyExclusions: '/test_dependencyExclusion'
+            dependencyExclusions: ['/test_dependencyExclusion1','/test_dependencyExclusion2']
         });
         dashboard.apiBase = "/insightservices/rest/v1/";
         dashboard.scenarioId = 'SCENARIOID';
@@ -53,6 +53,9 @@ describe("Dashboard", function() {
                         return {
                             getId: function () {
                                 return 'APPID';
+                            },
+                            getName: function() {
+                              return "APPNAME";
                             },
                             createFolder: function () {},
                             createScenario: function () {}
@@ -610,7 +613,7 @@ describe("Dashboard", function() {
 
             dashboard._dependencyModified(999)
                 .then(() => {
-                    expect(dashboard.api.getDashboardStatus).toHaveBeenCalledWith(dashboard.appId, 999, dashboard.config.dependencyPath, exclusions);
+                    expect(dashboard.api.getDashboardStatus).toHaveBeenCalledWith(dashboard.app, 999, dashboard.config.dependencyPath, exclusions);
                     done();
                 });
         });
@@ -622,13 +625,13 @@ describe("Dashboard", function() {
 
         it("should return the last execution timestamp of the user scenario", function (done) {
             var summary = {
-                lastExecutionDate: 999
+                executionFinished: 999
             }
             spyOn(dashboard.api, "getScenarioSummaryData").and.returnValue(Promise.resolve(summary));
 
             dashboard._getLastExecutionDate()
                 .then(timestamp => {
-                    expect(timestamp).toEqual(summary.lastExecutionDate);
+                    expect(timestamp).toEqual(summary.executionFinished);
                     done();
                 });
         });
@@ -1002,7 +1005,6 @@ describe("Dashboard", function() {
 
             it("Should return true if the scenario is in the loaded state", function (done) {
                 spyOn(dashboard.api, "getScenario").and.returnValue(Promise.resolve({loaded: true}));
-                debugger;
                 dashboard.api.isScenarioLoaded(666)
                     .then(function (loaded) {
                         expect(dashboard.api.getScenario).toHaveBeenCalledWith(666);
@@ -1060,9 +1062,9 @@ describe("Dashboard", function() {
                 }
 
                 spyOn(dashboard.api, "restRequest").and.returnValue(Promise.resolve(response));
-                dashboard.api.getDashboardStatus(666, payload.timestamp, payload.path, payload.exclusions)
+                dashboard.api.getDashboardStatus(dashboard.app, payload.timestamp, payload.path, payload.exclusions)
                     .then(function (modified) {
-                        expect(dashboard.api.restRequest).toHaveBeenCalledWith('project/666/dashboard/status', 'POST', JSON.stringify(payload));
+                        expect(dashboard.api.restRequest).toHaveBeenCalledWith('project/APPID/dashboard/status', 'POST', JSON.stringify(payload));
                         expect(modified).toEqual(response.dataModifiedSinceTimestamp);
                         done();
                     })
@@ -1473,10 +1475,97 @@ describe("Dashboard", function() {
             });
         });
         describe('InsightRESTAPI.getDashboardStatus()', function () {
+            var repo = {};
+
             beforeEach(function () {
                 initDashboardObject();
+
+                var appName = dashboard.app.getName();
+                repo["/"+ appName  + dashboard.config.dependencyPath] = {
+                    objectType: "FOLDER",
+                    path: "/"+ appName  + dashboard.config.dependencyPath,
+                    id: "PATH1234"
+                }
+                repo["/" + appName + dashboard.config.dependencyExclusions[0]] = {
+                    objectType: "FOLDER",
+                    path: "/" + appName + dashboard.config.dependencyExclusions[0],
+                    id: "EXCLUDE1"
+                }
+                repo["/" + appName + dashboard.config.dependencyExclusions[1]] = {
+                    objectType: "FOLDER",
+                    path: "/" + appName + dashboard.config.dependencyExclusions[1],
+                    id: "EXCLUDE2"
+                }
+
+                spyOn(dashboard.api, "restRequest").and.callFake(function() {
+                    var url = arguments[0];
+                    var method = arguments[1];
+
+                    var matches = url.match(/^repository\?path=(.+)/);
+                    if (matches) {
+                        var param = decodeURIComponent(matches[1]);
+                        if (repo[param])
+                            return Promise.resolve(repo[param]);
+
+                    }
+                    if (url.match(/^scenarios\/queries\/any-modified-since/))
+                        return Promise.resolve({ modified: true});
+                    console.log("CallFake unexpected arguments in getDashboardStatus");
+                    return Promise.resolve({ modified: false});
+                })
             });
-            it("Should request the dashboard status for the app", function (done) {
+
+            it("should resolve the root and exclusions to uuids if not in the cache", function(done) {
+                dashboard.api.objectCache = {};
+
+                dashboard.api.getDashboardStatus(dashboard.app, 666, dashboard.config.dependencyPath, dashboard.config.dependencyExclusions)
+                    .then(() => {
+                        expect(dashboard.api.objectCache).toEqual(repo);
+                        done();
+                })
+
+
+            })
+            it("should return the cached uuids if the root and exclusions have already been resolved", function(done) {
+                dashboard.api.objectCache = _.cloneDeep(repo); // prime the obkect cache
+
+                dashboard.api.getDashboardStatus(dashboard.app, 666, dashboard.config.dependencyPath, dashboard.config.dependencyExclusions)
+                    .then(() => {
+                        expect(dashboard.api.restRequest).toHaveBeenCalledTimes(1); // no resolving, just the final status query call
+                        done();
+                    })
+
+            })
+            it("should call the status query endpoint with the resolved uuids", function(done) {
+                dashboard.api.objectCache = _.cloneDeep(repo); // prime the obkect cache
+
+                dashboard.api.getDashboardStatus(dashboard.app, 666, dashboard.config.dependencyPath, dashboard.config.dependencyExclusions)
+                    .then(() => {
+                        var payload = {
+                            root: {
+                                id: "PATH1234",
+                                objectType: "FOLDER"
+                            },
+                            excludedFolderIds: ["EXCLUDE1", "EXCLUDE2"],
+                            timestamp: 666
+                        }
+                        expect(dashboard.api.restRequest).toHaveBeenCalledWith(
+                                "scenarios/queries/any-modified-since",
+                                "POST",
+                                JSON.stringify(payload));
+                        done();
+                    })
+
+            })
+
+
+
+
+
+
+
+
+           /* xit("Should request the dashboard status for the app", function (done) {
                 var payload = {
                     timestamp: 1234,
                     path: "THEPATH",
@@ -1484,19 +1573,18 @@ describe("Dashboard", function() {
                 };
 
                 var response = {
-                    dataModifiedSinceTimestamp: false
+                    modified: false
                 }
 
                 spyOn(dashboard.api, "restRequest").and.returnValue(Promise.resolve(response));
-                dashboard.api.getDashboardStatus(666, payload.timestamp, payload.path, payload.exclusions)
+                dashboard.api.getDashboardStatus(dashboard.app, payload.timestamp, payload.path, payload.exclusions)
                     .then(modified => {
 
-                        // TODO this method isnt implemented yet in the interface
-                        //expect(dashboard.api.restRequest).toHaveBeenCalledWith('project/666/dashboard/status', 'POST', JSON.stringify(payload));
-                        expect(modified).toEqual(response.dataModifiedSinceTimestamp);
+                        expect(dashboard.api.restRequest).toHaveBeenCalledWith('project/APPID/dashboard/status', 'POST', JSON.stringify(payload));
+                        expect(modified).toEqual(response.modified);
                         done();
                     })
-            });
+            });*/
         });
 
     });

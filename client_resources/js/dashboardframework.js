@@ -797,17 +797,16 @@ InsightRESTAPI.prototype = {
         var self=this;
         // v5 version of this endpoint takes uuids, meaning that we need to resolve the path based config to uuids
         if (!self.objectCache)
-            self.objectCache = [];
+            self.objectCache = {};
         
         var promises = [];
-        var fqp;
-        
+
         // if we havent done so already, resolve the path
-        if (!self.objectCache[path]) {
-            fqp = "/" + app.getName() + path;
-            fqp = encodeURIComponent(fqp);
+        var fqp = "/" + app.getName() + path;
+        if (!self.objectCache[fqp]) {
+            var encoded = encodeURIComponent(fqp);
             promises.push(
-                self.restRequest("repository?path=" + fqp, "GET")
+                self.restRequest("repository?path=" + encoded, "GET")
                     .then(object => {
                         self.objectCache[object.path] = object;
                     })
@@ -818,11 +817,11 @@ InsightRESTAPI.prototype = {
         }
         // if we havent done so already, resolve the exclusions
         for (var i=0; i<exclusions.length; i++) {
-            if (!self.objectCache[exclusions[i]]) {
-                fqp = "/" + app.getName() + exclusions[i];
-                fqp = encodeURIComponent(fqp);
+            fqp = "/" + app.getName() + exclusions[i];
+            if (!self.objectCache[fqp]) {
+                var encoded = encodeURIComponent(fqp);
                 promises.push(
-                    self.restRequest("repository?path=" + fqp, "GET")
+                    self.restRequest("repository?path=" + encoded, "GET")
                         .then(object => {
                             self.objectCache[object.path] = object;
                         })
@@ -838,13 +837,16 @@ InsightRESTAPI.prototype = {
             return Promise.all(promises)
                 .then(() => {
                     var ids = [];
-                    for (var i=0; i<exclusions.length; i++)
-                        ids.push(self.objectCache["/" + app.getName() + exclusions[i]].id);
-                        
+                    var fqp;
+                    for (var i=0; i<exclusions.length; i++) {
+                        fqp = "/" + app.getName() + exclusions[i];
+                        ids.push(self.objectCache[fqp].id);
+                    }
+                    fqp = "/" + app.getName() + path;
                     var payload = {
                         root: {
-                            id: self.objectCache["/" + app.getName() + path].id,
-                            objectType: self.objectCache["/" + app.getName() + path].objectType
+                            id: self.objectCache[fqp].id,
+                            objectType: self.objectCache[fqp].objectType
                         },
                         excludedFolderIds: ids,
                         timestamp: timestamp
@@ -855,13 +857,17 @@ InsightRESTAPI.prototype = {
                 })
         else {
             var ids = [];
-            for (var i=0; i<exclusions.length; i++)
-                ids.push(self.objectCache[exclusions[i]].id);
-                
+            var fqp;
+            for (var i=0; i<exclusions.length; i++) {
+                fqp = "/" + app.getName() + exclusions[i];
+                ids.push(self.objectCache[fqp].id);
+            }
+
+            fqp = "/" + app.getName() + path;
             var payload = {
                 root: {
-                    id: self.objectCache[path].id,
-                    objectTyoe: self.objectCache[path].objectType
+                    id: self.objectCache[fqp].id,
+                    objectType: self.objectCache[fqp].objectType
                 },
                 excludedFolderIds: ids,
                 timestamp: timestamp
@@ -871,32 +877,3 @@ InsightRESTAPI.prototype = {
         }
     }
 };
-
-/*
-Request:
-{
-  "root": {
-    "id": "uuid",
-    “objectType” : “APP|FOLDER”
-  },
-  "excludedFolderIds": [uuid, uuid], //can be empty
-  "timestamp": "UTC timestamp"
-}
-
-Response: 
-{
-    "modified": true
-}
-*/
-/*
-var self=this;
-
-        var payload = {
-            timestamp: timestamp,
-            path: path,
-            exclusions: exclusions
-        };
-
-        return self.restRequest('project/' + appId + '/dashboard/status', 'POST', JSON.stringify(payload))
-            .then(response => response.dataModifiedSinceTimestamp);
-            */

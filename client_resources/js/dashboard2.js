@@ -21,7 +21,7 @@
 var dashboard = new Dashboard({
 	viewId: "dashboard2",
 	executionMode: "loadDashboard",
-	dependencyCheck: true // no check for dashboard out of date
+	dependencyCheck: true, // no check for dashboard out of date,
 });
 insight.getView().replaceSelection(
 	dashboard.start()

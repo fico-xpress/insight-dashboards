@@ -86,10 +86,10 @@ Feature: Dashboards are per user
         Then they see a scenario called "dashboard1.user2" owned by user2 and private
     
 Feature: automatic checking for when the dashboard is out of date
-    Scenario: a scenario is removed which invalidates the dashboard state
+    Scenario: a scenario is updated which invalidates the dashboard state
         Given the user is logged in as admin
         And the user is viewing the second dashboard view
-        And the user deletes one of the scenarios owned by admin
+        And the user re-loads one of the scenarios owned by admin
         When at most a few seconds time has passed
         Then a info message is displayed at the top of the dashboard
         And the info message says the dashboard may be out of date
@@ -101,3 +101,23 @@ Feature: automatic checking for when the dashboard is out of date
         And the dashboard is updated
         Then the info message is removed
     
+Scenario: scenarios updated out of scope do not invalidate the dashboard state
+        Given the user is logged in as admin
+        And the user is viewing the second dashboard view
+        And the config.dependencyPath="/in scope" and the config.dependencyExclusions=["/in scope/excluded"]
+        And the folder "/in scope/excluded" exists
+        When the user creates and loads a scenario in the "/in scope" folder
+        And at most a few seconds time has passed
+        Then a info message is displayed at the top of the dashboard
+        And the info message says the dashboard may be out of date
+        When the user clicks on refresh
+        And the dashboard is updated
+        Then the info message is removed
+        
+        When the user creates and loads a scenario in the root of the app
+        And a few seconds time has passed
+        Then a info message is not displayed at the top of the dashboard
+        
+        When the user creates and loads a scenario in "/in scope/excluded"
+        And a few seconds time has passed
+        Then a info message is not displayed at the top of the dashboard

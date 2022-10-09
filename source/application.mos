@@ -24,6 +24,7 @@ model "Dashboards"
 
   declarations
     SYSTEM_FOLDER = "_system"
+    SCOPE_FOLDER = "/"
   end-declarations
 
   ! standard scenario data model
@@ -119,7 +120,8 @@ model "Dashboards"
 
   ! generate dashboard data
   temp := splittext(getparam("insight_scenario_path"), "/")
-  root := text("/") + temp(2)
+  root := text("/") + temp(2) + SCOPE_FOLDER
+  writeln("root is " + root)
   recursiveSearch(root)
   writeln("number of scenarios is " + totalScenarios)
   writeln("number of folders is " + totalFolders)
